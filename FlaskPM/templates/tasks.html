@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks - Antigravity PM{% endblock %}
+{% block header_title %}All Tasks{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header Controls -->
+    <div
+        class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+        <div class="flex items-center space-x-4 w-full md:w-auto">
+            <div class="relative w-full md:w-64">
+                <input type="text" id="task-search" placeholder="Search tasks..."
+                    class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+            <select id="task-filter-status" onchange="loadAllTasks()"
+                class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white text-slate-600">
+                <option value="">All Statuses</option>
+                <option value="To Do">To Do</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+            </select>
+        </div>
+        <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
+            <!-- Reuse Create Task Logic if possible, or just link to project -->
+            <!-- For global tasks, we might need a project selector in the modal -->
+            <button onclick="alert('Please go to a specific Project to create a task.')"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md transition flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                New Task
+            </button>
+        </div>
+    </div>
+
+    <!-- Tasks Table -->
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                        <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Task</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Project</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Priority
+                        </th>
+                        <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Assignee
+                        </th>
+                        <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Due Date
+                        </th>
+                        <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tasks-table-body" class="divide-y divide-slate-50">
+                    <tr>
+                        <td colspan="7" class="px-6 py-8 text-center text-slate-400">Loading tasks...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- Pagination (Mockup) -->
+        <div class="p-4 border-t border-slate-100 flex justify-between items-center text-sm text-slate-500">
+            <span id="tasks-count">Showing 0 tasks</span>
+            <div class="flex space-x-2">
+                <button class="px-3 py-1 border border-slate-200 rounded hover:bg-slate-50" disabled>Previous</button>
+                <button class="px-3 py-1 border border-slate-200 rounded hover:bg-slate-50" disabled>Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAllTasks();
+
+        // Simple search filter
+        document.getElementById('task-search').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#tasks-table-body tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+    });
+
+    async function loadAllTasks() {
+        const statusFilter = document.getElementById('task-filter-status').value;
+        const tbody = document.getElementById('tasks-table-body');
+
+        try {
+            // Fetch all tasks from API
+            // We might need to handle huge lists with server-side pagination later
+            const res = await fetch('/api/tasks');
+            let tasks = await res.json();
+
+            if (tasks.error) throw new Error(tasks.error);
+
+            if (statusFilter) {
+                tasks = tasks.filter(t => t.status === statusFilter);
+            }
+
+            tbody.innerHTML = '';
+            document.getElementById('tasks-count').innerText = `Showing ${tasks.length} tasks`;
+
+            if (tasks.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-slate-400">No tasks found.</td></tr>`;
+                return;
+            }
+
+            tasks.forEach(t => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition-colors';
+
+                // Colors
+                let statusClass = 'bg-slate-100 text-slate-700';
+                if (t.status === 'In Progress') statusClass = 'bg-blue-100 text-blue-700';
+                if (t.status === 'Completed') statusClass = 'bg-green-100 text-green-700';
+
+                let priorityClass = 'text-slate-500';
+                if (t.priority === 'High') priorityClass = 'text-red-500 font-medium';
+                if (t.priority === 'Medium') priorityClass = 'text-amber-600';
+
+                // Assignee (Mockup or joined data)
+                // Note: The API needs to join 'projects' and 'users' for better display
+                // If API doesn't return joined data, we might show IDs or 'Loading...'
+                // For now assuming existing schema
+
+                row.innerHTML = `
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-slate-800">${t.title}</div>
+                        <div class="text-xs text-slate-400 truncate max-w-xs">${t.description || ''}</div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-600">
+                        ${t.project ? t.project.title : 'Project #' + t.project_id}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">${t.status}</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm ${priorityClass}">
+                        ${t.priority}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-600">
+                        <div class="flex items-center space-x-2">
+                             ${t.assignee ?
+                        `<img src="${t.assignee.avatar_url || 'https://ui-avatars.com/api/?name=' + t.assignee.full_name}" class="w-6 h-6 rounded-full">
+                                 <span>${t.assignee.full_name}</span>`
+                        : '<span class="text-slate-400 italic">Unassigned</span>'}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-500">
+                        ${t.deadline ? new Date(t.deadline).toLocaleDateString() : '-'}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <a href="/projects/${t.project_id}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View</a>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+        } catch (e) {
+            console.error(e);
+            tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-red-500">Error loading tasks: ${e.message}</td></tr>`;
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Antigravity - Attendance{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div
+        class="flex justify-between items-center bg-white/40 p-6 rounded-3xl border border-white/50 shadow-sm backdrop-blur-md">
+        <div>
+            <h1 class="text-3xl font-extrabold text-slate-800">Attendance</h1>
+            <p class="text-slate-500 mt-1">Track your daily work hours.</p>
+        </div>
+        <div class="text-right">
+            <div class="text-2xl font-bold text-indigo-600" id="live-time">--:--:--</div>
+            <div class="text-sm text-slate-500" id="live-date">-- -- ----</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- PUNCH CARD -->
+        <div
+            class="bg-white/60 p-8 rounded-3xl border border-white/50 shadow-sm backdrop-blur-md flex flex-col items-center justify-center space-y-6">
+            <div id="status-badge" class="px-4 py-1 rounded-full text-sm font-semibold bg-slate-100 text-slate-500">
+                Loading...
+            </div>
+
+            <div class="relative group cursor-pointer" onclick="handlePunch()">
+                <div
+                    class="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200">
+                </div>
+                <button id="punch-btn"
+                    class="relative w-48 h-48 rounded-full bg-white flex flex-col items-center justify-center border-4 border-indigo-50 shadow-xl transition-transform transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg class="w-12 h-12 text-indigo-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        id="punch-icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-xl font-bold text-slate-700" id="punch-text">Punch In</span>
+                </button>
+            </div>
+
+            <p class="text-sm text-center text-slate-500 max-w-xs" id="punch-info">
+                Click to mark your attendance for today.
+            </p>
+        </div>
+
+        <!-- HISTORY -->
+        <div class="lg:col-span-2 bg-white/60 p-8 rounded-3xl border border-white/50 shadow-sm backdrop-blur-md">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-slate-700">Attendance History</h3>
+                <div class="flex space-x-2">
+                    <select id="hist-month" onchange="loadHistory()"
+                        class="px-3 py-2 rounded-xl border border-slate-200 bg-white/50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+                    <select id="hist-year" onchange="loadHistory()"
+                        class="px-3 py-2 rounded-xl border border-slate-200 bg-white/50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr>
+                            <th class="p-3 text-sm font-semibold text-slate-500 border-b border-slate-200">Date</th>
+                            <th class="p-3 text-sm font-semibold text-slate-500 border-b border-slate-200">Punch In</th>
+                            <th class="p-3 text-sm font-semibold text-slate-500 border-b border-slate-200">Punch Out
+                            </th>
+                            <th class="p-3 text-sm font-semibold text-slate-500 border-b border-slate-200">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body" class="text-slate-700 text-sm">
+                        <!-- JS will populate -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // Live Clock
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('live-time').innerText = now.toLocaleTimeString();
+        document.getElementById('live-date').innerText = now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Populate Year Dropdown & Set Defaults
+    (function initFilters() {
+        const today = new Date();
+        const yearSel = document.getElementById('hist-year');
+        const monthSel = document.getElementById('hist-month');
+
+        const currentYear = today.getFullYear();
+        for (let y = currentYear; y >= currentYear - 2; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.innerText = y;
+            yearSel.appendChild(opt);
+        }
+
+        // Set current month/year
+        monthSel.value = today.getMonth() + 1; // 0-indexed
+        yearSel.value = currentYear;
+    })();
+
+    let currentStatus = 'none'; // none, punched_in, completed
+
+    function safeParseTime(isoStr) {
+        if (!isoStr) return '-';
+        let cleanStr = isoStr;
+
+        // Only append Z if it looks naive (no Z, no +offset, no -offset at end)
+        // Check if it ends in Z
+        const endsInZ = cleanStr.toUpperCase().endsWith('Z');
+        // Check for timezone offset pattern at the end like +05:30 or -0400
+        const hasOffset = /[+-]\d{2}:?\d{2}$/.test(cleanStr);
+
+        if (!endsInZ && !hasOffset) {
+            cleanStr += 'Z';
+        }
+
+        const d = new Date(cleanStr);
+        if (isNaN(d.getTime())) return 'Invalid Date';
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function loadToday() {
+        const btn = document.getElementById('punch-btn');
+        const txt = document.getElementById('punch-text');
+        const badge = document.getElementById('status-badge');
+        const info = document.getElementById('punch-info');
+
+        try {
+            const res = await fetch('/api/attendance/today');
+            if (res.status === 401) window.location.href = '/login';
+
+            const data = await res.json(); // returns null if no record, or object
+
+            if (!data) {
+                // Not punched in yet
+                currentStatus = 'none';
+                txt.innerText = "Punch In";
+                badge.innerText = "Not Checked In";
+                badge.className = "px-4 py-1 rounded-full text-sm font-semibold bg-slate-200 text-slate-600";
+                btn.disabled = false;
+            } else if (data.punch_out) {
+                // Completed
+                currentStatus = 'completed';
+                txt.innerText = "Completed";
+                badge.innerText = "Day Completed";
+                badge.className = "px-4 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-600";
+                info.innerText = `You worked today. Great job!`;
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                // Punched In
+                currentStatus = 'punched_in';
+                txt.innerText = "Punch Out";
+                badge.innerText = "Checked In";
+                badge.className = "px-4 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-600";
+
+                const inTime = safeParseTime(data.punch_in);
+                info.innerText = `You punched in at ${inTime}. Click to punch out.`;
+                btn.disabled = false;
+            }
+
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function handlePunch() {
+        const btn = document.getElementById('punch-btn');
+        if (btn.disabled) return;
+
+        // Optimistic UI
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/attendance/punch', { method: 'POST' });
+            const result = await res.json();
+
+            if (res.ok) {
+                // Reload state
+                loadToday();
+                loadHistory();
+            } else {
+                alert(result.error || "Error punching.");
+                btn.disabled = false;
+            }
+        } catch (e) {
+            alert("Network error");
+            btn.disabled = false;
+        }
+    }
+
+    async function loadHistory() {
+        const tbody = document.getElementById('history-body');
+        const month = document.getElementById('hist-month').value;
+        const year = document.getElementById('hist-year').value;
+
+        tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">Loading records...</td></tr>';
+
+        try {
+            const params = new URLSearchParams({ month, year });
+            const res = await fetch(`/api/attendance/history?${params}`);
+            const data = await res.json();
+
+            tbody.innerHTML = '';
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">No records found.</td></tr>';
+                return;
+            }
+
+            data.forEach(row => {
+                const date = new Date(row.date).toLocaleDateString();
+                const inTime = safeParseTime(row.punch_in);
+                const outTime = safeParseTime(row.punch_out);
+
+                let statusColor = 'text-slate-600';
+                if (row.status === 'Present') statusColor = 'text-green-600 font-semibold';
+
+                const tr = `
+                 <tr class="hover:bg-slate-50 transition">
+                     <td class="p-3 border-b border-slate-100">${date}</td>
+                     <td class="p-3 border-b border-slate-100 font-mono text-slate-600">${inTime}</td>
+                     <td class="p-3 border-b border-slate-100 font-mono text-slate-600">${outTime}</td>
+                     <td class="p-3 border-b border-slate-100 ${statusColor}">${row.status || '-'}</td>
+                 </tr>
+               `;
+                tbody.insertAdjacentHTML('beforeend', tr);
+            });
+        } catch (e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-red-400">Error loading history</td></tr>';
+        }
+    }
+
+    // Init
+    loadToday();
+    loadHistory();
+
+</script>
+{% endblock %}

@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block header_title %}Project Details{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex items-center space-x-2 text-sm text-slate-500 mb-2">
+        <a href="{{ url_for('views.projects') }}" class="hover:text-blue-600">Projects</a>
+        <span>/</span>
+        <span class="text-slate-800 font-medium">Project #{{ project_id[:8] }}...</span>
+    </div>
+
+    <div class="flex justify-between items-start">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2" id="project-title-header">Loading...</h1>
+            <p class="text-slate-500 max-w-2xl" id="project-desc-header"></p>
+        </div>
+        <div>
+            <button onclick="openCreateTaskModal()"
+                class="px-4 py-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Task
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Task Board (Kanban-ish) -->
+<div class="flex overflow-x-auto pb-4 space-x-6 h-[calc(100vh-250px)]">
+
+    <!-- Column: To Do -->
+    <div class="w-80 flex-shrink-0 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200">
+        <div class="p-4 flex items-center justify-between border-b border-white/50">
+            <h3 class="font-bold text-slate-700">To Do</h3>
+            <span class="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs font-bold"
+                id="count-todo">0</span>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-3" id="col-todo">
+            <!-- Tasks go here -->
+        </div>
+    </div>
+
+    <!-- Column: In Progress -->
+    <div class="w-80 flex-shrink-0 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200">
+        <div class="p-4 flex items-center justify-between border-b border-white/50">
+            <h3 class="font-bold text-blue-700">In Progress</h3>
+            <span class="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs font-bold"
+                id="count-inprogress">0</span>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-3" id="col-inprogress">
+        </div>
+    </div>
+
+    <!-- Column: Completed -->
+    <div class="w-80 flex-shrink-0 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200">
+        <div class="p-4 flex items-center justify-between border-b border-white/50">
+            <h3 class="font-bold text-green-700">Completed</h3>
+            <span class="bg-green-100 text-green-600 px-2 py-0.5 rounded-full text-xs font-bold"
+                id="count-completed">0</span>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-3" id="col-completed">
+        </div>
+    </div>
+
+</div>
+
+<!-- Create Task Modal -->
+<div id="create-task-modal"
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6" id="create-task-content">
+        <h3 class="text-xl font-bold mb-4">New Task</h3>
+        <div class="space-y-4">
+            <input type="text" id="task-title" placeholder="Task Title"
+                class="w-full px-4 py-2 border rounded-lg bg-slate-50 focus:bg-white transition">
+            <textarea id="task-desc" placeholder="Description" rows="3"
+                class="w-full px-4 py-2 border rounded-lg bg-slate-50 focus:bg-white transition"></textarea>
+            <div class="flex space-x-4">
+                <select id="task-priority" class="w-1/3 px-4 py-2 border rounded-lg bg-slate-50">
+                    <option value="Low">Low Priority</option>
+                    <option value="Medium" selected>Medium Priority</option>
+                    <option value="High">High Priority</option>
+                </select>
+                <div class="w-1/3">
+                    <select id="task-assignee" class="w-full px-4 py-2 border rounded-lg bg-slate-50">
+                        <option value="">Unassigned</option>
+                        <!-- Populated via JS -->
+                    </select>
+                </div>
+                <input type="date" id="task-deadline" class="w-1/3 px-4 py-2 border rounded-lg bg-slate-50">
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end space-x-3">
+            <button onclick="document.getElementById('create-task-modal').classList.add('hidden')"
+                class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
+            <button onclick="createTask()"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30">Create
+                Task</button>
+        </div>
+    </div>
+</div>
+
+<!-- Task Preview Modal -->
+<div id="task-preview-modal"
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+            <div>
+                <div class="flex items-center space-x-3 mb-2">
+                    <span id="preview-priority"
+                        class="text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider"></span>
+                    <span id="preview-status"
+                        class="text-xs font-semibold px-2 py-0.5 rounded border border-slate-200 text-slate-500"></span>
+                </div>
+                <h3 class="text-2xl font-bold text-slate-800" id="preview-title"></h3>
+            </div>
+            <button onclick="document.getElementById('task-preview-modal').classList.add('hidden')"
+                class="text-slate-400 hover:text-slate-600 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 overflow-y-auto space-y-6">
+            <!-- Description -->
+            <div>
+                <h4 class="text-sm font-bold text-slate-500 uppercase tracking-wide mb-2">Description</h4>
+                <p id="preview-desc" class="text-slate-700 leading-relaxed whitespace-pre-line"></p>
+            </div>
+
+            <!-- Meta Grid -->
+            <div class="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">Assigned To</h4>
+                    <div class="flex items-center space-x-2" id="preview-assignee-box">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">Due Date</h4>
+                    <div class="flex items-center space-x-2 text-slate-700 font-medium">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        <span id="preview-deadline"></span>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">Created By</h4>
+                    <span id="preview-creator" class="text-sm text-slate-600"></span>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">Created On</h4>
+                    <span id="preview-created" class="text-sm text-slate-600"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-6 border-t border-slate-100 bg-slate-50 flex justify-end">
+            <!-- Future: Add Edit/Delete buttons here -->
+            <button onclick="document.getElementById('task-preview-modal').classList.add('hidden')"
+                class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-medium shadow-sm transition">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const PROJECT_ID = '{{ project_id }}';
+    let teamMembers = [];
+    let currentProjectTasks = []; // Store tasks for preview
+
+    async function openCreateTaskModal() {
+        document.getElementById('create-task-modal').classList.remove('hidden');
+        if (teamMembers.length === 0) {
+            await loadTeamMembers();
+        }
+    }
+
+    async function loadTeamMembers() {
+        try {
+            const res = await fetch('/api/team');
+            if (res.ok) {
+                teamMembers = await res.json();
+                const sel = document.getElementById('task-assignee');
+                // Keep "Unassigned" as first option
+                sel.innerHTML = '<option value="">Assign To...</option>';
+                teamMembers.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.innerText = u.full_name || u.email;
+                    sel.appendChild(opt);
+                });
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadProjectDetails();
+        loadTasks();
+    });
+
+    async function loadProjectDetails() {
+        try {
+            const res = await fetch(`/api/projects/${PROJECT_ID}`);
+            if (res.ok) {
+                const project = await res.json();
+                document.getElementById('project-title-header').innerText = project.title;
+                document.getElementById('project-desc-header').innerText = project.description || 'No description provided.';
+            } else {
+                document.getElementById('project-title-header').innerText = 'Project Not Found';
+            }
+        } catch (e) {
+            console.error("Error loading project details:", e);
+        }
+    }
+
+    async function loadTasks() {
+        const res = await fetch(`/api/projects/${PROJECT_ID}/tasks`);
+        const tasks = await res.json();
+        currentProjectTasks = tasks; // Store for lookup
+
+        // Clear columns
+        ['todo', 'inprogress', 'completed'].forEach(k => {
+            document.getElementById(`col-${k}`).innerHTML = '';
+            document.getElementById(`count-${k}`).innerText = '0';
+        });
+
+        const counts = { todo: 0, inprogress: 0, completed: 0 };
+
+        tasks.forEach(t => {
+            const statusKey = t.status.toLowerCase().replace(' ', ''); // 'to do' -> 'todo', 'in progress' -> 'inprogress'
+            const col = document.getElementById(`col-${statusKey}`);
+            if (col) {
+                counts[statusKey]++;
+                const card = createTaskCard(t);
+                col.appendChild(card);
+            }
+        });
+
+        // Update counts
+        Object.keys(counts).forEach(k => {
+            document.getElementById(`count-${k}`).innerText = counts[k];
+        });
+    }
+
+    function createTaskCard(t) {
+        const el = document.createElement('div');
+        el.className = 'bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition group relative cursor-pointer';
+        el.draggable = true;
+        // On click, open preview
+        el.onclick = (e) => {
+            // Prevent if clicking the move button
+            if (e.target.closest('button')) return;
+            openTaskPreview(t.id);
+        };
+
+        // Priority Color
+        let pColor = 'bg-slate-100 text-slate-600';
+        if (t.priority === 'High') pColor = 'bg-red-100 text-red-600';
+        if (t.priority === 'Medium') pColor = 'bg-orange-100 text-orange-600';
+        if (t.priority === 'Low') pColor = 'bg-green-100 text-green-600';
+
+        // Assigned user
+        const assignee = t.assignee;
+        const avatar = assignee ? (assignee.avatar_url || 'https://ui-avatars.com/api/?name=' + assignee.full_name) : null;
+        const name = assignee ? assignee.full_name : 'Unassigned';
+
+        el.innerHTML = `
+            <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded ${pColor}">${t.priority}</span>
+                <button class="text-slate-300 hover:text-blue-500 hidden group-hover:block" onclick="moveTask('${t.id}', '${t.status}')">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+            <h4 class="font-semibold text-slate-800 text-sm mb-1">${t.title}</h4>
+            <div class="flex items-center justify-between mt-3">
+                <div class="flex -space-x-2">
+                    ${assignee ? `<img src="${avatar}" class="w-6 h-6 rounded-full border-2 border-white" title="Assigned to ${name}">` : '<span class="text-xs text-slate-300 italic">Unassigned</span>'}
+                </div>
+                <span class="text-xs text-slate-400 font-medium">${new Date(t.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+            </div>
+        `;
+        return el;
+    }
+
+    function openTaskPreview(taskId) {
+        const t = currentProjectTasks.find(x => x.id === taskId);
+        if (!t) return;
+
+        document.getElementById('preview-title').innerText = t.title;
+        document.getElementById('preview-desc').innerText = t.description || 'No description provided.';
+        document.getElementById('preview-status').innerText = t.status;
+        document.getElementById('preview-created').innerText = new Date(t.created_at).toLocaleDateString();
+
+        // Priority
+        const pEl = document.getElementById('preview-priority');
+        pEl.innerText = t.priority;
+        pEl.className = 'text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider ';
+        if (t.priority === 'High') pEl.classList.add('bg-red-100', 'text-red-700');
+        else if (t.priority === 'Medium') pEl.classList.add('bg-orange-100', 'text-orange-700');
+        else pEl.classList.add('bg-green-100', 'text-green-700');
+
+        // Deadline
+        const dEl = document.getElementById('preview-deadline');
+        if (t.deadline) {
+            dEl.innerText = new Date(t.deadline).toLocaleDateString();
+            dEl.classList.remove('text-slate-400', 'italic');
+        } else {
+            dEl.innerText = 'No Deadline';
+            dEl.classList.add('text-slate-400', 'italic');
+        }
+
+        // Assignee
+        const aBox = document.getElementById('preview-assignee-box');
+        if (t.assignee) {
+            const avatar = t.assignee.avatar_url || ('https://ui-avatars.com/api/?name=' + t.assignee.full_name);
+            aBox.innerHTML = `
+                <img src="${avatar}" class="w-8 h-8 rounded-full border border-slate-200">
+                <span class="text-sm font-semibold text-slate-700">${t.assignee.full_name}</span>
+             `;
+        } else {
+            aBox.innerHTML = '<span class="text-sm text-slate-400 italic">Unassigned</span>';
+        }
+
+        // Creator (Note: backend doesn't currently join created_by info in detail, might effectively be sparse or we assume current user methods?)
+        // Task schema has created_by UUID, but fetching /tasks endpoint only joins assignee.
+        // We might not have Creator Name unless we update the backend to join it.
+        // For now, let's just show "Unknown" or skip if data missing.
+        document.getElementById('preview-creator').innerText = 'System / Admin';
+
+        document.getElementById('task-preview-modal').classList.remove('hidden');
+    }
+
+    async function createTask() {
+        const title = document.getElementById('task-title').value;
+        const desc = document.getElementById('task-desc').value;
+        const priority = document.getElementById('task-priority').value;
+        const deadline = document.getElementById('task-deadline').value;
+        const assigned_to = document.getElementById('task-assignee').value;
+
+        if (!title) return alert('Title required');
+
+        const res = await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_id: PROJECT_ID,
+                title, description: desc, priority, deadline, assigned_to
+            })
+        });
+
+        if (res.ok) {
+            document.getElementById('create-task-modal').classList.add('hidden');
+            loadTasks();
+            // Reset
+            document.getElementById('task-title').value = '';
+        } else {
+            const err = await res.json();
+            alert('Error creating task: ' + (err.error || 'Unknown error'));
+        }
+    }
+
+    async function moveTask(taskId, currentStatus) {
+        // Simple cycler for demo: To Do -> In Progress -> Completed -> To Do
+        let next = 'To Do';
+        if (currentStatus === 'To Do') next = 'In Progress';
+        else if (currentStatus === 'In Progress') next = 'Completed';
+
+        await fetch(`/api/tasks/${taskId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: next })
+        });
+        loadTasks();
+    }
+</script>
+{% endblock %}

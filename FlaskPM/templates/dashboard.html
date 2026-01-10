@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Antigravity PM{% endblock %}
+{% block header_title %}Dashboard{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Top Row: Projects & Tasks Chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Projects Section (Glass) -->
+        <div class="glass-panel p-6 rounded-3xl flex flex-col h-[400px]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">Projects</h3>
+                <a href="{{ url_for('views.projects') }}"
+                    class="text-xs font-semibold text-indigo-500 hover:text-indigo-700">View All</a>
+            </div>
+            <div class="overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-slate-200"
+                id="dash-projects-list">
+                <!-- Projects injected here -->
+                <div class="text-center text-slate-400 py-10">Loading projects...</div>
+            </div>
+        </div>
+
+        <!-- Tasks Status Chart (Glass) -->
+        <div class="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center h-[400px]">
+            <div class="w-full flex justify-between items-center mb-2 px-2">
+                <h3 class="text-lg font-bold text-slate-800">Tasks</h3>
+                <span class="text-xs text-slate-500 font-medium">By Status</span>
+            </div>
+            <div class="relative w-full h-full flex items-center justify-center">
+                <canvas id="tasksChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Row: Work Log & Performance -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Work Log (Glass) -->
+        <div class="glass-panel p-6 rounded-3xl h-[400px] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">Work Log</h3>
+                <span class="text-xs text-slate-500 font-medium">Tasks via Project</span>
+            </div>
+            <div class="flex-1 w-full flex items-center justify-center relative">
+                <canvas id="workLogChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Performance (Glass) -->
+        <div class="glass-panel p-6 rounded-3xl h-[400px] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">Performance</h3>
+                <span class="text-xs text-slate-500 font-medium">Tasks Created (7 Days)</span>
+            </div>
+            <div class="flex-1 w-full relative">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Global Chart instances
+    let charts = {};
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboardData();
+    });
+
+    async function loadDashboardData() {
+        try {
+            // Load Stats & Chart Data
+            const statsRes = await fetch('/api/stats');
+            const statsData = await statsRes.json();
+
+            if (!statsData.error) {
+                renderCharts(statsData.charts);
+            }
+
+            // Load Projects List
+            const projRes = await fetch('/api/projects');
+            const projData = await projRes.json();
+            renderProjects(projData);
+
+        } catch (e) {
+            console.error("Dashboard Load Error:", e);
+        }
+    }
+
+    function renderProjects(projects) {
+        const container = document.getElementById('dash-projects-list');
+        container.innerHTML = '';
+
+        if (!projects || projects.length === 0) {
+            container.innerHTML = '<div class="text-center text-slate-400 py-10">No active projects</div>';
+            return;
+        }
+
+        projects.forEach(p => {
+            const el = document.createElement('div');
+            // More subtle hover for glass
+            el.className = 'p-4 rounded-2xl bg-white/40 hover:bg-white/60 hover:shadow-sm border border-transparent transition cursor-pointer group flex items-center justify-between mb-2';
+            el.onclick = () => window.location.href = `/projects/${p.id}`;
+
+            el.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg shadow-sm">
+                        ${p.title[0]}
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 group-hover:text-indigo-600 transition">${p.title}</h4>
+                        <p class="text-xs text-slate-500 truncate max-w-[150px]">${p.description || 'No description'}</p>
+                    </div>
+                </div>
+                 <span class="text-xs font-medium px-2 py-1 rounded-full ${getStatusColor(p.status)}">
+                    ${p.status}
+                </span>
+             `;
+            container.appendChild(el);
+        });
+    }
+
+    function getStatusColor(status) {
+        if (status === 'Active') return 'bg-emerald-100 text-emerald-700';
+        if (status === 'Completed') return 'bg-indigo-100 text-indigo-700';
+        return 'bg-slate-200 text-slate-700';
+    }
+
+    function renderCharts(data) {
+        // Font setup
+        Chart.defaults.font.family = 'Outfit';
+        Chart.defaults.color = '#64748b';
+
+        // 1. Tasks Status
+        const ctx1 = document.getElementById('tasksChart').getContext('2d');
+        charts.tasks = new Chart(ctx1, {
+            type: 'doughnut',
+            data: {
+                labels: data.status.labels,
+                datasets: [{
+                    data: data.status.data,
+                    backgroundColor: ['#cbd5e1', '#6366f1', '#10b981'],
+                    borderWidth: 0,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8 } }
+                },
+                cutout: '65%',
+                layout: { padding: 10 }
+            }
+        });
+
+        // 2. Work Log (Projects)
+        const ctx2 = document.getElementById('workLogChart').getContext('2d');
+        const colors = ['#8b5cf6', '#d946ef', '#f43f5e', '#f97316', '#eab308'];
+        charts.workLog = new Chart(ctx2, {
+            type: 'doughnut',
+            data: {
+                labels: data.projects.labels,
+                datasets: [{
+                    data: data.projects.data,
+                    backgroundColor: colors,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8 } }
+                },
+                cutout: '65%',
+                layout: { padding: 10 }
+            }
+        });
+
+        // 3. Performance (Line)
+        const ctx3 = document.getElementById('performanceChart').getContext('2d');
+
+        // Gradient fill
+        const gradient = ctx3.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(249, 115, 22, 0.4)'); // Orange
+        gradient.addColorStop(1, 'rgba(249, 115, 22, 0.0)');
+
+        charts.performance = new Chart(ctx3, {
+            type: 'line',
+            data: {
+                labels: data.trend.labels,
+                datasets: [{
+                    label: 'New Tasks',
+                    data: data.trend.data,
+                    borderColor: '#f97316',
+                    backgroundColor: gradient,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9', borderDash: [5, 5] }, ticks: { stepSize: 1 } },
+                    x: { grid: { display: false } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

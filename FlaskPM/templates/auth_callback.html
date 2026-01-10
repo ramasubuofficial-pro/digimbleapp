@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Auth Callback{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center h-screen">
+    <div class="text-center">
+        <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4">
+        </div>
+        <h2 class="text-xl font-semibold text-slate-700">Authenticating...</h2>
+    </div>
+</div>
+
+<script>
+    // Robust Auth Callback Handler
+    window.onload = async function () {
+        console.log("Starting Auth Check...");
+
+        // 1. Check existing session from client library storage
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            console.log("Session found immediately via getSession");
+            handleSession(session);
+            return;
+        }
+
+        // 2. Parsed Hash Check (Manual Fallback)
+        // If the library hasn't picked it up yet, we check the URL hash manually.
+        // Format: #access_token=...&expires_in=...&provider_token=...&refresh_token=...&token_type=bearer
+        const hash = window.location.hash;
+        if (hash && hash.includes('access_token')) {
+            console.log("Hash found, extracting tokens details...");
+
+            // Parse hash
+            const hashPart = hash.substring(1); // remove #
+            const params = new URLSearchParams(hashPart);
+            const access_token = params.get('access_token');
+            const refresh_token = params.get('refresh_token');
+
+            if (access_token) {
+                console.log("Tokens extracted manually. Setting session...");
+                const { data, error } = await supabaseClient.auth.setSession({
+                    access_token,
+                    refresh_token: refresh_token || ''
+                });
+
+                if (!error && data.session) {
+                    console.log("Manual setSession success");
+                    handleSession(data.session);
+                    return;
+                } else {
+                    console.error("Manual setSession failed", error);
+                    showError("Failed to set session: " + error?.message);
+                    return;
+                }
+            }
+        }
+
+        // 3. Fallback: Wait for library listener (Race condition handler)
+        // Sometimes the library is in the middle of processing.
+        console.log("No session yet, listening for auth state change...");
+        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((event, session) => {
+            console.log("Auth event:", event);
+            if (event === 'SIGNED_IN' && session) {
+                handleSession(session);
+                subscription.unsubscribe();
+            }
+        });
+
+        // 4. Ultimate Timeout
+        setTimeout(() => {
+            const spinner = document.querySelector('.animate-spin');
+            if (spinner && !spinner.classList.contains('hidden')) {
+                supabaseClient.auth.getSession().then(({ data: { session } }) => {
+                    if (session) handleSession(session);
+                    else showError("Timeout: Session not detected. Please verify your redirect URL configuration in Supabase.");
+                });
+            }
+        }, 5000); // 5 seconds
+    };
+
+    async function handleSession(session) {
+        try {
+            // Send session to Flask server to set cookie
+            const response = await fetch('/auth/api/set-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    access_token: session.access_token,
+                    user: session.user
+                })
+            });
+
+            if (response.ok) {
+                window.location.href = '/';
+            } else {
+                showError('Server sync failed: ' + response.statusText);
+            }
+        } catch (err) {
+            showError('Network error: ' + err.message);
+        }
+    }
+
+    function showError(msg) {
+        console.error(msg);
+        document.querySelector('h2').innerText = 'Authentication Failed';
+        const spinner = document.querySelector('.animate-spin');
+        if (spinner) spinner.classList.add('hidden');
+
+        // Clear previous
+        document.querySelectorAll('.error-msg').forEach(el => el.remove());
+
+        const sub = document.createElement('p');
+        sub.className = 'text-red-500 mt-2 px-4 error-msg text-sm';
+        sub.innerText = msg;
+        document.querySelector('.text-center').appendChild(sub);
+
+        const btn = document.createElement('a');
+        btn.href = '/auth/login';
+        btn.innerText = 'Back to Login';
+        btn.className = 'mt-4 inline-block text-blue-500 underline text-sm';
+        document.querySelector('.text-center').appendChild(btn);
+    }
+</script>
+{% endblock %}

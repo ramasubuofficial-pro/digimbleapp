@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Antigravity PM{% endblock %}</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Tailwind Configuration for Custom Colors/Fonts -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        glass: 'rgba(255, 255, 255, 0.65)',
+                    }
+                }
+            }
+        }
+    </script>
+    {% block head %}{% endblock %}
+</head>
+
+<body
+    class="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen text-slate-800 selection:bg-purple-200 selection:text-purple-900">
+    <!-- Supabase Setup -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "{{ config['SUPABASE_URL'] }}";
+        const SUPABASE_KEY = "{{ config['SUPABASE_KEY'] }}";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    </script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <div class="flex h-screen overflow-hidden p-4 gap-6">
+
+        <!-- Floating Glass Sidebar -->
+        <aside
+            class="w-64 glass-sidebar rounded-3xl flex flex-col justify-between hidden md:flex transition-all duration-300 z-50">
+            <!-- Sidebar Header -->
+            <div class="h-20 flex items-center px-8">
+                <div class="text-2xl font-extrabold text-gradient flex items-center space-x-2">
+                    <!-- Logo Icon -->
+                    <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <span>Antigravity</span>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto scrollbar-hide">
+                <a href="{{ url_for('views.dashboard') }}"
+                    class="flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group {% if request.endpoint == 'views.dashboard' %}bg-white/60 shadow-sm text-indigo-600 font-semibold{% else %}text-slate-500 hover:bg-white/40 hover:text-slate-700{% endif %}">
+                    <svg class="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
+                        </path>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="{{ url_for('views.tasks') }}"
+                    class="flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group {% if request.endpoint == 'views.tasks' %}bg-white/60 shadow-sm text-indigo-600 font-semibold{% else %}text-slate-500 hover:bg-white/40 hover:text-slate-700{% endif %}">
+                    <svg class="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4">
+                        </path>
+                    </svg>
+                    Tasks
+                </a>
+                <a href="{{ url_for('views.projects') }}"
+                    class="flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group {% if request.endpoint == 'views.projects' or request.endpoint == 'views.project_details' %}bg-white/60 shadow-sm text-indigo-600 font-semibold{% else %}text-slate-500 hover:bg-white/40 hover:text-slate-700{% endif %}">
+                    <svg class="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                    </svg>
+                    Projects
+                </a>
+
+                <a href="{{ url_for('views.attendance') }}"
+                    class="flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group {% if request.endpoint == 'views.attendance' %}bg-white/60 shadow-sm text-indigo-600 font-semibold{% else %}text-slate-500 hover:bg-white/40 hover:text-slate-700{% endif %}">
+                    <svg class="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Attendance
+                </a>
+                <a href="{{ url_for('views.calendar') }}"
+                    class="flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group {% if request.endpoint == 'views.calendar' %}bg-white/60 shadow-sm text-indigo-600 font-semibold{% else %}text-slate-500 hover:bg-white/40 hover:text-slate-700{% endif %}">
+                    <svg class="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    Calendar
+                </a>
+                <a href="{{ url_for('views.reports') }}"
+                    class="flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group {% if request.endpoint == 'views.reports' %}bg-white/60 shadow-sm text-indigo-600 font-semibold{% else %}text-slate-500 hover:bg-white/40 hover:text-slate-700{% endif %}">
+                    <svg class="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                    Reports
+                </a>
+                <a href="{{ url_for('views.team') }}"
+                    class="flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group {% if request.endpoint == 'views.team' %}bg-white/60 shadow-sm text-indigo-600 font-semibold{% else %}text-slate-500 hover:bg-white/40 hover:text-slate-700{% endif %}">
+                    <svg class="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
+                        </path>
+                    </svg>
+                    Team
+                </a>
+                <a href="{{ url_for('views.settings') }}"
+                    class="flex items-center px-4 py-3.5 rounded-2xl transition-all duration-200 group {% if request.endpoint == 'views.settings' %}bg-white/60 shadow-sm text-indigo-600 font-semibold{% else %}text-slate-500 hover:bg-white/40 hover:text-slate-700{% endif %}">
+                    <svg class="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                        </path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    Settings
+                </a>
+            </nav>
+
+            <!-- User Profile Section -->
+            <div class="p-6 border-t border-white/20">
+                {% if session.user %}
+                <div class="flex items-center space-x-3 mb-4">
+                    <div
+                        class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shadow-sm">
+                        {% if session.user.user_metadata and session.user.user_metadata.avatar_url %}
+                        <img src="{{ session.user.user_metadata.avatar_url }}"
+                            class="w-full h-full rounded-full object-cover">
+                        {% else %}
+                        {{ session.user.email[0]|upper }}
+                        {% endif %}
+                    </div>
+                    <div class="overflow-hidden">
+                        <p class="text-sm font-bold text-slate-800 truncate">{{ session.user.user_metadata.full_name if
+                            (session.user.user_metadata and session.user.user_metadata.full_name) else
+                            session.user.email }}</p>
+                        <button onclick="handleSignOut()"
+                            class="text-xs text-red-500 hover:text-red-600 font-medium">Sign Out</button>
+                    </div>
+                </div>
+                {% else %}
+                <a href="/login"
+                    class="w-full block text-center bg-indigo-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition">Login</a>
+                {% endif %}
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main
+            class="flex-1 overflow-y-auto rounded-3xl pb-10 scrollbar-thin scrollbar-thumb-white/20 hover:scrollbar-thumb-white/40">
+            <!-- Header -->
+            <header class="flex justify-between items-center px-4 py-4 mb-8 z-40 bg-transparent">
+                <h1
+                    class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-600">
+                    {% block header_title %}Overview{% endblock %}
+                </h1>
+
+                <div class="flex items-center space-x-4 relative">
+                    <!-- Search Button -->
+                    <button onclick="toggleSearch()"
+                        class="p-2 rounded-full glass-static hover:bg-white/80 transition text-slate-500">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </button>
+                    <!-- Notification Button -->
+                    <button onclick="toggleNotifications()"
+                        class="p-2 rounded-full glass-static hover:bg-white/80 transition text-slate-500 relative">
+                        <span id="notif-badge"
+                            class="hidden absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                            </path>
+                        </svg>
+                    </button>
+
+                    <!-- Notification Dropdown -->
+                    <div id="notif-dropdown"
+                        class="hidden absolute top-14 right-0 w-96 backdrop-blur-3xl bg-white/90 rounded-3xl shadow-2xl border border-white/40 ring-1 ring-black/5 z-50 overflow-hidden transform transition-all duration-300 origin-top-right">
+                        <!-- Header -->
+                        <div
+                            class="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 flex justify-between items-center">
+                            <h3 class="font-bold text-white tracking-wide text-sm uppercase">Notifications</h3>
+                            <button
+                                class="text-xs text-white/80 hover:text-white bg-white/20 px-2 py-1 rounded-full transition">Clear
+                                All</button>
+                        </div>
+
+                        <!-- List -->
+                        <div id="notif-list"
+                            class="max-h-[22rem] overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-indigo-200">
+                            <!-- Loading State -->
+                            <div class="flex flex-col items-center justify-center py-12 text-slate-400 opacity-60">
+                                <svg class="w-10 h-10 mb-3 animate-pulse" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                                    </path>
+                                </svg>
+                                <span>Checking for updates...</span>
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="bg-slate-50 p-2 text-center text-xs text-slate-400 border-t border-slate-100">
+                            Antigravity Notifications
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Modal Overlay -->
+                <div id="search-modal"
+                    class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-start justify-center pt-24"
+                    onclick="if(event.target===this) toggleSearch()">
+                    <div
+                        class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all p-4">
+                        <div class="relative">
+                            <svg class="w-6 h-6 absolute left-3 top-3 text-slate-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            <input type="text" id="global-search" onkeyup="handleGlobalSearch()"
+                                placeholder="Search project, tasks..."
+                                class="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-700 placeholder-slate-400 text-lg">
+                        </div>
+                        <div id="search-results" class="mt-4 max-h-60 overflow-y-auto space-y-2 hidden">
+                            <!-- Results -->
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="px-4">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    <!-- AI Chat Widget -->
+    <div id="ai-chat-widget" class="fixed bottom-6 right-6 z-50 font-sans">
+        <!-- Chat Window -->
+        <div id="chat-window"
+            class="hidden glass-panel w-80 md:w-96 rounded-2xl shadow-2xl flex flex-col mb-4 overflow-hidden transition-all duration-200 transform origin-bottom-right scale-95 opacity-0">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex justify-between items-center">
+                <h3 class="text-white font-bold flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z">
+                        </path>
+                    </svg>
+                    AI Assistant
+                </h3>
+                <button onclick="toggleChat()" class="text-white/80 hover:text-white"><svg class="w-5 h-5" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+            <div id="chat-messages"
+                class="h-80 overflow-y-auto p-4 space-y-3 bg-white/50 scrollbar-thin scrollbar-thumb-indigo-200">
+                <!-- Messages -->
+                <div class="flex justify-start">
+                    <div
+                        class="bg-white text-slate-700 border border-slate-100 shadow-sm rounded-2xl rounded-tl-none px-4 py-2 text-sm max-w-[80%]">
+                        Hello! I'm your AI assistant. Ask me anything about your projects or tasks.
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 bg-white/80 border-t border-indigo-100 flex items-center">
+                <input type="text" id="chat-input"
+                    class="flex-1 bg-transparent border-0 focus:ring-0 text-sm placeholder-slate-400 focus:outline-none px-2"
+                    placeholder="Type a message...">
+                <button onclick="sendChatMessage()"
+                    class="ml-2 p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition shadow-lg shadow-indigo-500/30">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 19l9-2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Toggle Button -->
+        <button onclick="toggleChat()"
+            class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 rounded-full shadow-lg shadow-indigo-500/40 hover:scale-110 transition-transform float-right group relative">
+            <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                <span
+                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-pink-500"></span>
+            </span>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                </path>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        function toggleChat() {
+            const win = document.getElementById('chat-window');
+            if (win.classList.contains('hidden')) {
+                win.classList.remove('hidden');
+                setTimeout(() => {
+                    win.classList.remove('opacity-0', 'scale-95');
+                    document.getElementById('chat-input').focus();
+                }, 10);
+            } else {
+                win.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => win.classList.add('hidden'), 200);
+            }
+        }
+
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChatMessage();
+        });
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            // User Message
+            appendMessage(msg, 'user');
+            input.value = '';
+
+            // Simulate thinking UI
+            const chats = document.getElementById('chat-messages');
+            const loadingId = 'loading-' + Date.now();
+            chats.innerHTML += `<div id="${loadingId}" class="flex justify-start"><div class="bg-indigo-50 text-indigo-400 rounded-2xl rounded-tl-none px-4 py-2 text-sm italic">Typing...</div></div>`;
+            chats.scrollTop = chats.scrollHeight;
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+
+                const lEl = document.getElementById(loadingId);
+                if (lEl) lEl.remove();
+
+                appendMessage(data.response || "I didn't quite get that.", 'ai');
+
+            } catch (e) {
+                const lEl = document.getElementById(loadingId);
+                if (lEl) lEl.remove();
+                appendMessage("I'm having trouble retrieving information right now.", 'ai');
+            }
+        }
+
+        // --- GLOBAL SEARCH & NOTIFICATIONS ---
+
+        function toggleSearch() {
+            const modal = document.getElementById('search-modal');
+            const input = document.getElementById('global-search');
+            modal.classList.toggle('hidden');
+            if (!modal.classList.contains('hidden')) {
+                input.focus();
+            }
+        }
+
+        let searchDebounce;
+        async function handleGlobalSearch() {
+            const query = document.getElementById('global-search').value.toLowerCase();
+            const resultsDiv = document.getElementById('search-results');
+
+            clearTimeout(searchDebounce);
+
+            if (query.length < 2) {
+                resultsDiv.innerHTML = '';
+                resultsDiv.classList.add('hidden');
+                return;
+            }
+
+            searchDebounce = setTimeout(async () => {
+                resultsDiv.classList.remove('hidden');
+                resultsDiv.innerHTML = '<div class="text-slate-400 text-sm p-4 text-center">Searching...</div>';
+
+                // Fetch simple results from tasks API (client-side filtering for simplicity if small data, or assume API support)
+                // For now, let's fetch ALL tasks (limit 50) and filter clientside as a demo
+                try {
+                    const res = await fetch('/api/tasks');
+                    const tasks = await res.json();
+
+                    const filtered = tasks.filter(t => t.title.toLowerCase().includes(query) || (t.project && t.project.title.toLowerCase().includes(query)));
+
+                    if (filtered.length === 0) {
+                        resultsDiv.innerHTML = '<div class="text-slate-400 text-sm p-4 text-center">No results found</div>';
+                        return;
+                    }
+
+                    resultsDiv.innerHTML = filtered.map(t => `
+                        <a href="/projects/${t.project_id}" class="block p-3 hover:bg-slate-50 rounded-xl transition flex items-center justify-between">
+                            <div>
+                                <h4 class="font-bold text-slate-700 text-sm">${t.title}</h4>
+                                <p class="text-xs text-slate-500">${t.project ? t.project.title : 'No Project'}</p>
+                            </div>
+                            <span class="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-1 rounded">${t.status}</span>
+                        </a>
+                    `).join('');
+
+                } catch (e) {
+                    console.error(e);
+                    resultsDiv.innerHTML = '<div class="text-red-400 text-sm p-4 text-center">Error searching</div>';
+                }
+            }, 300);
+        }
+
+        async function toggleNotifications() {
+            const dropdown = document.getElementById('notif-dropdown');
+            const list = document.getElementById('notif-list');
+            dropdown.classList.toggle('hidden');
+
+            if (!dropdown.classList.contains('hidden')) {
+                // Fetch
+                try {
+                    const res = await fetch('/api/notifications');
+                    const data = await res.json();
+
+                    if (!data || data.length === 0) {
+                        list.innerHTML = `
+                            <div class="flex flex-col items-center justify-center py-12 text-slate-400 opacity-60">
+                                <svg class="w-12 h-12 mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                                <span>No new notifications</span>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    list.innerHTML = data.map(n => {
+                        // Determine Icon based on keyword
+                        let icon = '<svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>';
+                        let bg = 'bg-indigo-50';
+
+                        if (n.message.toLowerCase().includes('task')) {
+                            icon = '<svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                            bg = 'bg-emerald-50';
+                        } else if (n.message.toLowerCase().includes('project')) {
+                            icon = '<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>';
+                            bg = 'bg-blue-50';
+                        }
+
+                        // Format Time logic (simple)
+                        const d = new Date(n.created_at);
+                        const now = new Date();
+                        const diffMins = Math.floor((now - d) / 60000);
+                        let timeStr = d.toLocaleDateString();
+                        if (diffMins < 1) timeStr = 'Just now';
+                        else if (diffMins < 60) timeStr = `${diffMins} mins ago`;
+                        else if (diffMins < 1440) timeStr = `${Math.floor(diffMins / 60)} hours ago`;
+
+                        return `
+                        <div class="group relative p-3 rounded-2xl hover:bg-slate-50 transition-all duration-200 cursor-pointer flex items-start space-x-3">
+                            <div class="flex-shrink-0 w-10 h-10 rounded-full ${bg} flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                ${icon}
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-sm font-semibold text-slate-800 leading-tight mb-1">${n.title || 'Notification'}</h4>
+                                <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">${n.message}</p>
+                                <span class="text-[10px] font-bold text-indigo-400 mt-2 block tracking-wide uppercase">${timeStr}</span>
+                            </div>
+                            ${!n.is_read ? '<div class="absolute top-4 right-4 w-2 h-2 bg-indigo-500 rounded-full shadow ring-2 ring-white"></div>' : ''}
+                        </div>
+                        `;
+                    }).join('');
+
+                } catch (e) {
+                    list.innerHTML = '<div class="text-center text-red-400 text-sm py-4">Failed to load</div>';
+                }
+            }
+        }
+
+        function appendMessage(text, sender) {
+            const chats = document.getElementById('chat-messages');
+            const align = sender === 'user' ? 'justify-end' : 'justify-start';
+            const style = sender === 'user'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-tr-none shadow-md'
+                : 'bg-white text-slate-700 rounded-tl-none border border-slate-100 shadow-sm';
+
+            const div = document.createElement('div');
+            div.className = `flex ${align} `;
+            div.innerHTML = `<div class="${style} rounded-2xl px-4 py-2 text-sm max-w-[80%]">${text}</div>`;
+            chats.appendChild(div);
+            chats.scrollTop = chats.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>

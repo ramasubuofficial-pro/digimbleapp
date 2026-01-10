@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Antigravity PM{% endblock %}
+
+{% block content %}
+<div class="fixed inset-0 flex items-center justify-center bg-slate-50 z-[1001]">
+    <!-- Higher z-index to cover sidebar -->
+    <div class="w-full max-w-md p-8 bg-white rounded-2xl shadow-xl border border-slate-100 relative">
+        <div class="text-center mb-8">
+            <h1
+                class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-600 mb-2">
+                Antigravity</h1>
+            <p class="text-slate-500">Project Management Reimagined</p>
+        </div>
+
+        <div class="space-y-4">
+            <!-- Email/Pass Form -->
+            <div id="email-form" class="space-y-3">
+                <input type="email" id="email" placeholder="Email address"
+                    class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="password" id="password" placeholder="Password"
+                    class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                <button onclick="signInWithEmail()"
+                    class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-lg shadow-blue-500/30">
+                    Login
+                </button>
+            </div>
+
+            <div class="relative flex py-2 items-center">
+                <div class="flex-grow border-t border-slate-200"></div>
+                <span class="flex-shrink-0 mx-4 text-slate-400 text-sm">Or</span>
+                <div class="flex-grow border-t border-slate-200"></div>
+            </div>
+
+            <button onclick="signInWithGoogle()"
+                class="w-full flex items-center justify-center px-4 py-3 border border-slate-300 rounded-xl hover:bg-slate-50 transition-all group font-medium text-slate-700">
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5 mr-3" alt="Google">
+                Continue with Google
+            </button>
+        </div>
+
+        <p class="mt-8 text-center text-xs text-slate-400">
+            By continuing, you agree to our Terms of Service and Privacy Policy.
+        </p>
+    </div>
+</div>
+
+<script>
+    // The supabase client is initialized in base.html as 'supabaseClient'
+
+    // Handle Access Token (from Email Confirmation or Magic Link)
+    window.onload = async function () {
+        // If there's a hash, let Supabase parse it
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+
+        if (session) {
+            // Already handled by lib or previous login
+            handleSession(session);
+        }
+
+        // Listen for auth changes (like redirect result)
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                handleSession(session);
+            }
+        });
+    };
+
+    async function handleSession(session) {
+        // Post to server to set python session
+        try {
+            const res = await fetch('/auth/api/set-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    access_token: session.access_token,
+                    user: session.user
+                })
+            });
+            if (res.ok) {
+                window.location.href = "{{ url_for('views.dashboard') }}";
+            } else {
+                console.error("Failed to sync session");
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function signInWithEmail() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const btn = event.target;
+
+        btn.innerText = "Logging in...";
+        btn.disabled = true;
+
+        try {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) throw error;
+            // onAuthStateChange will handle redirect
+
+        } catch (error) {
+            alert(error.message || "Login failed");
+            btn.innerText = "Login";
+            btn.disabled = false;
+        }
+    }
+
+    async function signInWithGoogle() {
+        try {
+            const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin + '/auth/callback'
+                }
+            })
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error logging in:', error);
+            alert('Error logging in: ' + (error.message || JSON.stringify(error)));
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar - Antigravity PM{% endblock %}
+{% block header_title %}Schedule{% endblock %}
+
+{% block head %}
+<!-- FullCalendar CSS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+<style>
+    /* FullCalendar Dark Mode / Custom Styling Override */
+    :root {
+        --fc-border-color: #e2e8f0;
+        --fc-button-bg-color: #ffffff;
+        --fc-button-border-color: #e2e8f0;
+        --fc-button-text-color: #475569;
+        --fc-button-hover-bg-color: #f8fafc;
+        --fc-button-hover-border-color: #cbd5e1;
+        --fc-button-active-bg-color: #e2e8f0;
+        --fc-button-active-border-color: #cbd5e1;
+        --fc-event-bg-color: #3b82f6;
+        --fc-event-border-color: #3b82f6;
+        --fc-today-bg-color: #f0f9ff;
+    }
+
+    .dark {
+        --fc-border-color: #1e293b;
+        --fc-button-bg-color: #1e293b;
+        --fc-button-border-color: #334155;
+        --fc-button-text-color: #94a3b8;
+        --fc-button-hover-bg-color: #334155;
+        --fc-button-hover-border-color: #475569;
+        --fc-button-active-bg-color: #334155;
+        --fc-button-active-border-color: #475569;
+        --fc-page-bg-color: #0f172a;
+        --fc-neutral-bg-color: #1e293b;
+        --fc-list-event-hover-bg-color: #1e293b;
+        --fc-today-bg-color: #1e293b;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: inherit;
+    }
+
+    /* Remove default underline */
+    .fc-col-header-cell-cushion,
+    .fc-daygrid-day-number {
+        text-decoration: none !important;
+        color: inherit;
+    }
+
+    /* Toolbar Buttons */
+    .fc .fc-button {
+        box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+        transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out, color 0.15s ease-in-out;
+        padding: 0.5rem 1rem;
+    }
+
+    .fc .fc-button:focus {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        box-shadow: 0 0 0 2px #3b82f6;
+        /* blue-500 */
+        z-index: 10;
+        /* Ensure ring is visible */
+    }
+
+    /* Event Styling */
+    .fc-event {
+        border-radius: 4px;
+        padding: 2px 4px;
+        font-size: 0.85em;
+        cursor: pointer;
+        border: none;
+        transition: transform 0.1s;
+    }
+
+    .fc-event:hover {
+        transform: scale(1.02);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="h-full flex flex-col">
+    <div class="glass rounded-2xl shadow-sm border border-slate-100 p-6 flex-1 flex flex-col min-h-[600px]">
+        <!-- Calendar Container -->
+        <div id='calendar' class="flex-1"></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var calendarEl = document.getElementById('calendar');
+
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            height: '100%',
+            editable: false, // Set to true if we implement drag-n-drop update
+            dayMaxEvents: true, // allow "more" link when too many events
+            events: '/api/calendar/events', // Flask API endpoint
+
+            eventClick: function (info) {
+                // Navigate to task details or open modal
+                // For now, redirect to project tasks or task detail
+                // Since we don't have a direct task detail page, let's alert or log
+                // info.event.extendedProps.project_id could be useful
+                if (info.event.url) {
+                    window.location.href = info.event.url;
+                    info.jsEvent.preventDefault(); // prevent browser default
+                }
+            },
+
+            eventDidMount: function (info) {
+                // Add tooltip or custom styling if needed
+                if (info.event.extendedProps.description) {
+                    info.el.title = info.event.extendedProps.description;
+                }
+            }
+        });
+
+        calendar.render();
+    });
+</script>
+{% endblock %}
