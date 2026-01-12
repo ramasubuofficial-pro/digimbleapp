@@ -5,7 +5,7 @@
 {% block content %}
 <div class="mb-8">
     <div class="flex items-center space-x-2 text-sm text-slate-500 mb-2">
-        <a href="{{ url_for('views.projects') }}" class="hover:text-blue-600">Projects</a>
+        <a href="{{ url_for('views.projects') }}" class="hover:text-emerald-600">Projects</a>
         <span>/</span>
         <span class="text-slate-800 font-medium">Project #{{ project_id[:8] }}...</span>
     </div>
@@ -37,7 +37,7 @@
         </div>
         <div>
             <button onclick="openCreateTaskModal()"
-                class="px-4 py-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition flex items-center">
+                class="px-4 py-2 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 transition flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                 </svg>
@@ -65,8 +65,8 @@
     <!-- Column: In Progress -->
     <div class="w-80 flex-shrink-0 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200">
         <div class="p-4 flex items-center justify-between border-b border-white/50">
-            <h3 class="font-bold text-blue-700">In Progress</h3>
-            <span class="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs font-bold"
+            <h3 class="font-bold text-amber-700">In Progress</h3>
+            <span class="bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full text-xs font-bold"
                 id="count-inprogress">0</span>
         </div>
         <div class="flex-1 overflow-y-auto p-3 space-y-3" id="col-inprogress">
@@ -76,8 +76,8 @@
     <!-- Column: Completed -->
     <div class="w-80 flex-shrink-0 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200">
         <div class="p-4 flex items-center justify-between border-b border-white/50">
-            <h3 class="font-bold text-green-700">Completed</h3>
-            <span class="bg-green-100 text-green-600 px-2 py-0.5 rounded-full text-xs font-bold"
+            <h3 class="font-bold text-emerald-700">Completed</h3>
+            <span class="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full text-xs font-bold"
                 id="count-completed">0</span>
         </div>
         <div class="flex-1 overflow-y-auto p-3 space-y-3" id="col-completed">
@@ -151,7 +151,7 @@
             <button onclick="document.getElementById('create-task-modal').classList.add('hidden')"
                 class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
             <button onclick="createTask()"
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30">Create
+                class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-lg shadow-emerald-500/30">Create
                 Task</button>
         </div>
     </div>

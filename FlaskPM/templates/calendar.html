@@ -8,46 +8,55 @@
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
 <style>
     /* 
-       Creative Light Glass Theme
-       Soft, ethereal, and vibrant.
+       Creative Glass Theme V2
+       Cleaner, faster, more vibrant.
     */
     :root {
-        --fc-border-color: rgba(226, 232, 240, 0.6);
-        /* slate-200 */
+        --fc-border-color: rgba(226, 232, 240, 0.4);
         --fc-page-bg-color: transparent;
-        --fc-neutral-bg-color: rgba(255, 255, 255, 0.5);
+        --fc-neutral-bg-color: rgba(255, 255, 255, 0.3);
         --fc-list-event-hover-bg-color: rgba(241, 245, 249, 0.8);
-        --fc-today-bg-color: rgba(238, 242, 255, 0.5) !important;
-        /* indigo-50 */
+        --fc-today-bg-color: rgba(16, 185, 129, 0.05) !important;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     /* Main Container */
     .creative-calendar-wrapper {
-        background: rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.45);
         backdrop-filter: blur(24px);
         -webkit-backdrop-filter: blur(24px);
-        border: 1px solid rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.6);
         border-radius: 32px;
         box-shadow:
-            0 20px 40px -12px rgba(99, 102, 241, 0.1),
-            /* Indigo shadow hint */
-            0 0 0 1px rgba(255, 255, 255, 0.7) inset;
-        padding: 2.5rem;
+            0 20px 50px -12px rgba(0, 0, 0, 0.05),
+            0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+        padding: 2rem;
         color: #1e293b;
-        /* slate-800 */
         position: relative;
         overflow: hidden;
+        animation: fadeIn 0.6s ease-out;
     }
 
-    /* Decorative Background Blobs */
+    /* Decorative Background Gradients */
     .creative-calendar-wrapper::before {
         content: '';
         position: absolute;
-        top: -10%;
-        left: -10%;
-        width: 300px;
-        height: 300px;
-        background: radial-gradient(circle, rgba(167, 139, 250, 0.15) 0%, transparent 70%);
+        top: -150px;
+        left: -150px;
+        width: 500px;
+        height: 500px;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
         z-index: 0;
         pointer-events: none;
     }
@@ -55,197 +64,167 @@
     .creative-calendar-wrapper::after {
         content: '';
         position: absolute;
-        bottom: -5%;
-        right: -5%;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+        bottom: -150px;
+        right: -150px;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
         z-index: 0;
         pointer-events: none;
     }
 
-    /* Header Title */
+    /* Toolbar Title */
     .fc .fc-toolbar-title {
         font-family: 'Outfit', sans-serif;
         font-size: 2.5rem !important;
         font-weight: 800;
         letter-spacing: -0.04em;
-        background: linear-gradient(135deg, #4f46e5, #ec4899);
-        /* Indigo to Pink */
+        background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         position: relative;
         z-index: 10;
-        margin-bottom: 0.5rem;
     }
 
-    /* Toolbar Layout */
-    .fc .fc-toolbar {
-        display: flex;
-        align-items: center;
-        margin-bottom: 2.5rem !important;
-        position: relative;
-        z-index: 10;
-    }
-
-    /* Buttons (Modern Pills) */
+    /* Toolbar Buttons */
     .fc .fc-button-primary {
-        background: rgba(255, 255, 255, 0.8);
-        border: 1px solid rgba(226, 232, 240, 0.8);
+        background: white;
+        border: 1px solid #e2e8f0;
         color: #64748b;
-        /* slate-500 */
-        font-weight: 700;
+        font-weight: 600;
         text-transform: capitalize;
-        border-radius: 999px;
-        /* full rounded */
-        padding: 0.6rem 1.4rem;
+        border-radius: 12px;
+        padding: 0.6rem 1.2rem;
         font-size: 0.9rem;
-        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        /* Bouncy spring */
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
-    }
-
-    .fc .fc-button-group>.fc-button {
-        border-radius: 999px;
-        margin: 0 4px;
-        flex: none;
-    }
-
-    /* Remove group merging style */
-    .fc .fc-button-group {
-        display: flex;
-        gap: 0;
-    }
-
-    .fc .fc-button-group>.fc-button:not(:first-child),
-    .fc .fc-button-group>.fc-button:not(:last-child) {
-        border-radius: 999px;
-        /* Keep them separate pills */
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
     }
 
     .fc .fc-button-primary:hover {
-        background: #fff;
-        color: #4f46e5;
-        border-color: #c7d2fe;
-        transform: translateY(-2px) scale(1.05);
-        box-shadow: 0 8px 16px -4px rgba(99, 102, 241, 0.2);
-        z-index: 5;
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        color: #059669;
+        /* Emerald */
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     }
 
     .fc .fc-button-primary:not(:disabled).fc-button-active,
     .fc .fc-button-primary:not(:disabled):active {
-        background: #4f46e5;
-        /* Indigo-600 */
-        border-color: #4f46e5;
+        background: #059669;
+        border-color: #059669;
         color: white;
-        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-        transform: translateY(0);
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
     }
 
-    .fc .fc-button-primary:focus {
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    .fc .fc-button-group>.fc-button {
+        margin: 0 2px;
+        border-radius: 12px !important;
+        /* Force separate buttons */
     }
 
-    /* Grid Styling */
+    /* Header Cells */
+    .fc-col-header-cell-cushion {
+        color: #64748b;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-weight: 700;
+        padding: 10px 0;
+    }
+
+    /* Grid Lines - make them thinner/lighter */
     .fc-theme-standard td,
     .fc-theme-standard th {
-        border-color: rgba(226, 232, 240, 0.8) !important;
+        border-color: rgba(226, 232, 240, 0.6);
     }
 
-    .fc-scrollgrid {
-        border: none !important;
-    }
-
-    .fc-col-header-cell {
-        background: transparent;
-        padding-bottom: 20px;
-        border: none !important;
-    }
-
-    .fc-col-header-cell-cushion {
-        color: #94a3b8;
-        /* slate-400 */
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        font-weight: 800;
-        text-decoration: none !important;
-    }
-
-    /* Day Cells */
-    .fc-daygrid-day-top {
-        justify-content: center;
-        padding-top: 12px;
-    }
-
+    /* Day Number */
     .fc-daygrid-day-number {
-        color: #64748b;
-        font-size: 0.95rem;
+        color: #475569;
         font-weight: 600;
-        width: 32px;
-        height: 32px;
+        font-size: 0.9rem;
+        margin: 4px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 50%;
-        transition: all 0.2s;
-        text-decoration: none !important;
     }
 
-    .fc-daygrid-day:hover .fc-daygrid-day-number {
-        background: #f1f5f9;
-        color: #334155;
-    }
-
-    /* Today */
-    .fc-day-today {
-        background: transparent !important;
-    }
-
+    /* Today Highlight */
     .fc-day-today .fc-daygrid-day-number {
-        background: #4f46e5;
-        color: white !important;
-        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.4);
+        background: #059669;
+        color: white;
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.4);
     }
 
-    /* Event Styling - Bubbles */
+    /* Events */
     .fc-event {
         border: none;
-        border-radius: 12px;
-        margin: 3px 6px;
-        padding: 4px 10px;
-        font-size: 0.8rem;
+        border-radius: 8px;
+        padding: 3px 6px;
+        font-size: 0.75rem;
         font-weight: 600;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         cursor: pointer;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        transition: all 0.2s ease;
+        transition: transform 0.2s;
     }
 
     .fc-event:hover {
-        transform: translateY(-2px) scale(1.02);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        z-index: 10;
+        transform: scale(1.02);
+        z-index: 50;
     }
 
-    /* Default Event Gradient */
-    .fc-h-event {
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        /* Indigo to Violet */
-        color: white;
+    .fc-event-main {
+        padding: 2px 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    .fc-daygrid-event-dot {
-        border-color: white;
+    /* Remove Scrollbars if possible */
+    .fc-scroller::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+    }
+
+    .fc-scroller::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 2px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="h-full flex flex-col p-4">
+<div class="h-full flex flex-col p-2 space-y-4">
+
+    <!-- Legend / Quick Stats -->
+    <div class="flex items-center justify-between px-4 animate-in fade-in slide-in-from-top-4 duration-700">
+        <div class="flex space-x-6 text-sm">
+            <div class="flex items-center">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2 shadow-sm shadow-emerald-500/50"></span>
+                <span class="text-slate-600 font-medium">Normal</span>
+            </div>
+            <div class="flex items-center">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 mr-2 shadow-sm shadow-amber-500/50"></span>
+                <span class="text-slate-600 font-medium">Medium</span>
+            </div>
+            <div class="flex items-center">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 mr-2 shadow-sm shadow-red-500/50"></span>
+                <span class="text-slate-600 font-medium">High Priority</span>
+            </div>
+        </div>
+        <div class="hidden md:block text-xs text-slate-400">
+            Syncs automatically with your Tasks
+        </div>
+    </div>
+
     <!-- Creative Wrapper -->
-    <div class="creative-calendar-wrapper flex-1 flex flex-col min-h-[700px] relative z-0">
+    <div class="creative-calendar-wrapper flex-1 flex flex-col min-h-[600px] relative z-0">
         <!-- Calendar Container -->
-        <div id='calendar' class="flex-1 relative z-10"></div>
+        <div id='calendar' class="flex-1 relative z-10 w-full"></div>
     </div>
 </div>
 
@@ -257,17 +236,18 @@
             initialView: 'dayGridMonth',
             themeSystem: 'standard',
             headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                left: 'title',
+                center: '',
+                right: 'prev,today,next dayGridMonth,timeGridWeek'
             },
             height: '100%',
             contentHeight: 'auto',
             editable: false,
             droppable: false,
-            dayMaxEvents: true,
-            events: '/api/calendar/events',
+            dayMaxEvents: 3,
+            events: '/api/calendar/events', // Now supports date range via backend
             navLinks: true,
+            nowIndicator: true,
 
             eventClick: function (info) {
                 if (info.event.url) {
@@ -276,34 +256,44 @@
                 }
             },
 
+            loading: function (isLoading) {
+                if (isLoading) {
+                    // Optional: Show spinner
+                }
+            },
+
             eventDidMount: function (info) {
+                // Tooltip
                 if (info.event.extendedProps.description) {
                     info.el.title = info.event.extendedProps.description;
                 }
 
-                // Custom Gradients based on priorities
-                let grad = '';
+                // Custom Gradients based on updated backend props
+                // If backend colors fail or we want client-side overrides:
                 const p = info.event.extendedProps.priority;
+                const status = info.event.extendedProps.status;
+
+                let bg = info.event.backgroundColor; // Default from backend
+
+                // Refine gradients if single color sent
                 if (p === 'High') {
-                    grad = 'linear-gradient(135deg, #ef4444, #f43f5e)'; /* Red to Rose */
+                    info.el.style.background = 'linear-gradient(135deg, #ef4444, #f87171)';
+                    info.el.style.boxShadow = '0 4px 10px rgba(239, 68, 68, 0.2)';
                 } else if (p === 'Medium') {
-                    grad = 'linear-gradient(135deg, #f97316, #fbbf24)'; /* Orange to Amber */
+                    info.el.style.background = 'linear-gradient(135deg, #f59e0b, #fbbf24)';
+                    info.el.style.boxShadow = '0 4px 10px rgba(245, 158, 11, 0.2)';
+                } else if (status === 'Completed') {
+                    info.el.style.background = 'linear-gradient(135deg, #059669, #34d399)';
+                    info.el.style.opacity = '0.8';
                 } else {
-                    grad = 'linear-gradient(135deg, #3b82f6, #06b6d4)'; /* Blue to Cyan (Low/Default) */
+                    info.el.style.background = 'linear-gradient(135deg, #10b981, #34d399)';
+                    info.el.style.boxShadow = '0 4px 10px rgba(16, 185, 129, 0.2)';
                 }
 
-                info.el.style.background = grad;
-
-                // Add glassshine effect
+                // Shine Effect
                 const shine = document.createElement('div');
-                shine.style.position = 'absolute';
-                shine.style.top = '0';
-                shine.style.left = '0';
-                shine.style.width = '100%';
-                shine.style.height = '50%';
-                shine.style.background = 'linear-gradient(to bottom, rgba(255,255,255,0.4), transparent)';
-                shine.style.borderRadius = '12px 12px 64px 64px / 12px 12px 32px 32px';
-                shine.style.pointerEvents = 'none';
+                shine.className = 'absolute inset-0 bg-white/10 pointer-events-none rounded-lg';
+                shine.style.clipPath = 'polygon(0 0, 100% 0, 100% 40%, 0 100%)';
                 info.el.appendChild(shine);
             }
         });

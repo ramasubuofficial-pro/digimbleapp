@@ -410,6 +410,17 @@ def update_task(task_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@api_bp.route('/tasks/<task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    user_id = get_current_user_id()
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    try:
+        supabase.table('tasks').delete().eq('id', task_id).execute()
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"Error deleting task: {e}")
+        return jsonify({"error": str(e)}), 400
+
 
 # ---------------- NOTIFICATIONS ----------------
 @api_bp.route("/notifications", methods=["GET"])
@@ -533,22 +544,42 @@ def get_calendar_events():
     user_id = get_current_user_id()
     if not user_id: return jsonify([]), 401
     
+    # FullCalendar sends 'start' and 'end' (ISO 8601 strings)
+    start_date = request.args.get('start')
+    end_date = request.args.get('end')
+    
     try:
-        res = supabase.table('tasks').select('*').or_(f"assigned_to.eq.{user_id},created_by.eq.{user_id}").execute()
+        # Build Query
+        query = supabase.table('tasks').select('*').or_(f"assigned_to.eq.{user_id},created_by.eq.{user_id}")
+        
+        # Apply Date Filtering if provided
+        # We filter on 'deadline' as the primary date for the calendar
+        if start_date and end_date:
+            # We only want tasks that have a deadline within the view content
+            query = query.gte('deadline', start_date).lte('deadline', end_date)
+            # Note: tasks without deadline won't be returned, which is correct as they can't be shown on calendar anyway
+        else:
+            # Fallback (safety limit)
+            query = query.not_.is_('deadline', 'null').limit(500)
+
+        res = query.execute()
         tasks = res.data
         
         events = []
         for t in tasks:
-            color = '#3b82f6'
-            if t.get('status') == 'Completed': color = '#10b981'
-            elif t.get('priority') == 'High': color = '#ef4444'
+            # Color Logic
+            color = '#10b981' # Default Emerald
+            if t.get('priority') == 'High': color = '#ef4444' # Red
+            elif t.get('priority') == 'Medium': color = '#f59e0b' # Amber-500
+            elif t.get('status') == 'Completed': color = '#059669' # Emerald-600
             
             if t.get('deadline'):
                 # Check for "Midnight UTC" (Date-only default)
-                # Typical format: 2026-01-09T00:00:00+00:00 or Z
                 is_all_day = False
                 d_str = t['deadline']
-                if "T00:00:00" in d_str and ("+00:00" in d_str or d_str.endswith("Z")):
+                
+                # Simple check for T00:00:00 indicating a date-picker selection without time
+                if "T00:00:00" in d_str:
                      is_all_day = True
                      # Strip time component for cleaner All Day rendering
                      d_str = d_str.split("T")[0]
@@ -560,6 +591,11 @@ def get_calendar_events():
                     'allDay': is_all_day,
                     'backgroundColor': color,
                     'borderColor': color,
+                    'extendedProps': {
+                        'priority': t.get('priority'),
+                        'description': t.get('description'),
+                        'status': t.get('status')
+                    },
                     'url': f"/projects/{t['project_id']}" if t.get('project_id') else None
                 })
         return jsonify(events)

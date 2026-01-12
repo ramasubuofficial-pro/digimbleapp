@@ -12,7 +12,7 @@
             <p class="text-slate-500 mt-1">Track your daily work hours.</p>
         </div>
         <div class="text-right">
-            <div class="text-2xl font-bold text-indigo-600" id="live-time">--:--:--</div>
+            <div class="text-2xl font-bold text-emerald-600" id="live-time">--:--:--</div>
             <div class="text-sm text-slate-500" id="live-date">-- -- ----</div>
         </div>
     </div>
@@ -28,11 +28,11 @@
 
             <div class="relative group cursor-pointer" onclick="handlePunch()">
                 <div
-                    class="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200">
+                    class="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200">
                 </div>
                 <button id="punch-btn"
-                    class="relative w-48 h-48 rounded-full bg-white flex flex-col items-center justify-center border-4 border-indigo-50 shadow-xl transition-transform transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <svg class="w-12 h-12 text-indigo-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    class="relative w-48 h-48 rounded-full bg-white flex flex-col items-center justify-center border-4 border-emerald-50 shadow-xl transition-transform transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg class="w-12 h-12 text-emerald-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                         id="punch-icon">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -52,7 +52,7 @@
                 <h3 class="text-xl font-bold text-slate-700">Attendance History</h3>
                 <div class="flex space-x-2">
                     <select id="hist-month" onchange="loadHistory()"
-                        class="px-3 py-2 rounded-xl border border-slate-200 bg-white/50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="px-3 py-2 rounded-xl border border-slate-200 bg-white/50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
                         <option value="1">January</option>
                         <option value="2">February</option>
                         <option value="3">March</option>
@@ -67,7 +67,7 @@
                         <option value="12">December</option>
                     </select>
                     <select id="hist-year" onchange="loadHistory()"
-                        class="px-3 py-2 rounded-xl border border-slate-200 bg-white/50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="px-3 py-2 rounded-xl border border-slate-200 bg-white/50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
                         <!-- Populated by JS -->
                     </select>
                 </div>
@@ -106,7 +106,7 @@
             </p>
 
             <textarea id="loc-input" rows="3"
-                class="w-full text-sm p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 bg-slate-50 text-slate-700"></textarea>
+                class="w-full text-sm p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-4 bg-slate-50 text-slate-700"></textarea>
 
             <div class="flex space-x-3">
                 <button onclick="closeLocModal()"
@@ -114,7 +114,7 @@
                     Cancel
                 </button>
                 <button onclick="confirmPunch()"
-                    class="flex-1 py-2 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">
+                    class="flex-1 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition shadow-lg shadow-emerald-200">
                     Confirm & Punch
                 </button>
             </div>
@@ -199,7 +199,7 @@
                 currentStatus = 'completed';
                 txt.innerText = "Completed";
                 badge.innerText = "Day Completed";
-                badge.className = "px-4 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-600";
+                badge.className = "px-4 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-600";
                 info.innerText = `You worked today. Great job!`;
                 btn.disabled = true;
                 btn.classList.add('opacity-50', 'cursor-not-allowed');
@@ -208,7 +208,7 @@
                 currentStatus = 'punched_in';
                 txt.innerText = "Punch Out";
                 badge.innerText = "Checked In";
-                badge.className = "px-4 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-600";
+                badge.className = "px-4 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-600";
 
                 const inTime = safeParseTime(data.punch_in);
                 info.innerText = `You punched in at ${inTime}. Click to punch out.`;
@@ -408,7 +408,7 @@
                 const outTime = safeParseTime(row.punch_out);
 
                 let statusColor = 'text-slate-600';
-                if (row.status === 'Present') statusColor = 'text-green-600 font-semibold';
+                if (row.status === 'Present') statusColor = 'text-emerald-600 font-semibold';
 
                 const tr = `
                  <tr class="hover:bg-slate-50 transition border-b border-slate-100 last:border-0">

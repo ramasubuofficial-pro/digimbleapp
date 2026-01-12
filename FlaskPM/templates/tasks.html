@@ -11,7 +11,7 @@
         <div class="flex items-center space-x-4 w-full md:w-auto">
             <div class="relative w-full md:w-64">
                 <input type="text" id="task-search" placeholder="Search tasks..."
-                    class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                 <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor"
                     viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -19,7 +19,7 @@
                 </svg>
             </div>
             <select id="task-filter-status" onchange="loadAllTasks()"
-                class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white text-slate-600">
+                class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white text-slate-600">
                 <option value="">All Statuses</option>
                 <option value="To Do">To Do</option>
                 <option value="In Progress">In Progress</option>
@@ -29,8 +29,8 @@
         <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
             <!-- Reuse Create Task Logic if possible, or just link to project -->
             <!-- For global tasks, we might need a project selector in the modal -->
-            <button onclick="showToast('Please go to a specific Project to create a task.', 'info')"
-                class="hidden md:flex items-center px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">
+            <button onclick="openCreateTaskModal()"
+                class="hidden md:flex items-center px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-500/30">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                 </svg>
@@ -77,7 +77,234 @@
     </div>
 </div>
 
+<div id="create-task-modal"
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6" id="create-task-content">
+        <h3 class="text-xl font-bold mb-4">New Task</h3>
+        <div class="space-y-4">
+            <!-- Project Selection -->
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Project</label>
+                <select id="task-project"
+                    class="w-full px-4 py-2 border rounded-lg bg-slate-50 focus:bg-white transition"
+                    onchange="document.getElementById('project-error-msg').classList.add('hidden')">
+                    <option value="">Select Project...</option>
+                </select>
+                <div id="project-error-msg" class="hidden text-red-500 text-sm mt-1">Project is required</div>
+            </div>
+
+            <input type="text" id="task-title" placeholder="Task Title"
+                class="w-full px-4 py-2 border rounded-lg bg-slate-50 focus:bg-white transition"
+                oninput="document.getElementById('task-error-msg').classList.add('hidden')">
+            <!-- Inline Error Message -->
+            <div id="task-error-msg" class="hidden text-red-500 text-sm px-2 flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span id="task-error-text">Title is required</span>
+            </div>
+            <textarea id="task-desc" placeholder="Description" rows="3"
+                class="w-full px-4 py-2 border rounded-lg bg-slate-50 focus:bg-white transition"
+                oninput="document.getElementById('desc-error-msg').classList.add('hidden')"></textarea>
+            <div id="desc-error-msg" class="hidden text-red-500 text-sm px-2 flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span id="desc-error-text">Description is required</span>
+            </div>
+            <div class="flex space-x-4">
+                <div class="w-1/3">
+                    <select id="task-priority" class="w-full px-4 py-2 border rounded-lg bg-slate-50">
+                        <option value="Low">Low Priority</option>
+                        <option value="Medium" selected>Medium Priority</option>
+                        <option value="High">High Priority</option>
+                    </select>
+                </div>
+                <div class="w-1/3">
+                    <select id="task-assignee" class="w-full px-4 py-2 border rounded-lg bg-slate-50"
+                        oninput="document.getElementById('assignee-error-msg').classList.add('hidden')">
+                        <option value="">Unassigned</option>
+                        <!-- Populated via JS -->
+                    </select>
+                    <div id="assignee-error-msg" class="hidden text-red-500 text-xs mt-1">
+                        Assignee is required
+                    </div>
+                </div>
+                <div class="w-1/3 relative">
+                    <input type="text" id="task-deadline" placeholder="Deadline"
+                        class="w-full pl-10 pr-4 py-2 border rounded-lg bg-slate-50 focus:bg-white cursor-pointer"
+                        oninput="document.getElementById('deadline-error-msg').classList.add('hidden')">
+                    <svg class="absolute left-3 top-2.5 w-5 h-5 text-slate-400 pointer-events-none" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    <div id="deadline-error-msg" class="hidden text-red-500 text-xs mt-1">
+                        Deadline is required
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end space-x-3">
+            <button onclick="document.getElementById('create-task-modal').classList.add('hidden')"
+                class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
+            <button onclick="createTask()"
+                class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-lg shadow-emerald-500/30">Create
+                Task</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Task Modal -->
+<div id="edit-task-modal"
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6">
+        <h3 class="text-xl font-bold mb-4">Edit Task</h3>
+        <input type="hidden" id="edit-task-id">
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Project (Read Only)</label>
+                <input type="text" id="edit-task-project-title" disabled
+                    class="w-full px-4 py-2 border rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed">
+            </div>
+
+            <input type="text" id="edit-task-title" placeholder="Task Title"
+                class="w-full px-4 py-2 border rounded-lg bg-slate-50 focus:bg-white transition">
+
+            <textarea id="edit-task-desc" placeholder="Description" rows="3"
+                class="w-full px-4 py-2 border rounded-lg bg-slate-50 focus:bg-white transition"></textarea>
+
+            <div class="flex space-x-4">
+                <div class="w-1/3">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Priority</label>
+                    <select id="edit-task-priority" class="w-full px-4 py-2 border rounded-lg bg-slate-50">
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+                <div class="w-1/3">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
+                    <select id="edit-task-status" class="w-full px-4 py-2 border rounded-lg bg-slate-50">
+                        <option value="To Do">To Do</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+                <div class="w-1/3">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Assignee</label>
+                    <select id="edit-task-assignee" class="w-full px-4 py-2 border rounded-lg bg-slate-50">
+                        <option value="">Unassigned</option>
+                    </select>
+                </div>
+            </div>
+            <div class="relative">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Deadline</label>
+                <input type="text" id="edit-task-deadline" placeholder="Select Date..."
+                    class="w-full pl-10 pr-4 py-2 border rounded-lg bg-slate-50 focus:bg-white cursor-pointer">
+                <svg class="absolute left-3 top-8 w-5 h-5 text-slate-400 pointer-events-none" fill="none"
+                    stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                    </path>
+                </svg>
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end space-x-3">
+            <button onclick="document.getElementById('edit-task-modal').classList.add('hidden')"
+                class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
+            <button onclick="updateTask()"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30">Save
+                Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- View Task Modal -->
+<div id="view-task-modal"
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+            <div>
+                <div class="flex items-center space-x-3 mb-2">
+                    <span id="view-priority"
+                        class="text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider"></span>
+                    <span id="view-status"
+                        class="text-xs font-semibold px-2 py-0.5 rounded border border-slate-200 text-slate-500"></span>
+                </div>
+                <h3 class="text-2xl font-bold text-slate-800" id="view-title"></h3>
+            </div>
+            <button onclick="document.getElementById('view-task-modal').classList.add('hidden')"
+                class="text-slate-400 hover:text-slate-600 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto space-y-6">
+            <div>
+                <h4 class="text-sm font-bold text-slate-500 uppercase tracking-wide mb-2">Description</h4>
+                <p id="view-desc" class="text-slate-700 leading-relaxed whitespace-pre-line"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">Project</h4>
+                    <span id="view-project" class="text-sm font-bold text-slate-700"></span>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">Assigned To</h4>
+                    <div class="flex items-center space-x-2" id="view-assignee-box"></div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">Due Date</h4>
+                    <span id="view-deadline" class="text-sm font-medium text-slate-700"></span>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">Created On</h4>
+                    <span id="view-created" class="text-sm text-slate-600"></span>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 border-t border-slate-100 bg-slate-50 flex justify-end">
+            <button onclick="document.getElementById('view-task-modal').classList.add('hidden')"
+                class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-medium shadow-sm transition">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-confirm-modal"
+    class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+            <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Delete Task?</h3>
+        <p class="text-sm text-slate-500 mb-6">Are you sure you want to permanently delete this task? This action cannot
+            be undone.</p>
+        <div class="flex space-x-3 justify-center">
+            <button onclick="document.getElementById('delete-confirm-modal').classList.add('hidden')"
+                class="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg font-medium transition">Cancel</button>
+            <button onclick="confirmDeleteTask()"
+                class="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg font-medium shadow-lg shadow-red-500/30 transition">Yes,
+                Delete</button>
+        </div>
+    </div>
+</div>
+
 <script>
+    let allTasks = [];
+    let teamMembers = [];
+    let projectsList = [];
+    let deleteTargetId = null;
+
     document.addEventListener('DOMContentLoaded', () => {
         loadAllTasks();
 
@@ -90,7 +317,267 @@
                 row.style.display = text.includes(term) ? '' : 'none';
             });
         });
+
+        // Init Flatpickr for Create & Edit
+        flatpickr("#task-deadline", { enableTime: true, dateFormat: "Y-m-d H:i", minDate: "today", theme: "dark" });
+        flatpickr("#edit-task-deadline", { enableTime: true, dateFormat: "Y-m-d H:i", theme: "dark" });
     });
+
+    async function openCreateTaskModal() {
+        // Reset Fields
+        document.getElementById('task-project').value = '';
+        document.getElementById('task-title').value = '';
+        document.getElementById('task-desc').value = '';
+        document.getElementById('task-priority').value = 'Medium';
+        document.getElementById('task-assignee').value = '';
+        document.getElementById('task-deadline').value = '';
+
+        // Hide Errors
+        ['task-error-msg', 'desc-error-msg', 'assignee-error-msg', 'deadline-error-msg', 'project-error-msg'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+
+        document.getElementById('create-task-modal').classList.remove('hidden');
+
+        // Load dependencies if empty
+        if (projectsList.length === 0) await loadProjectsForModal();
+        if (teamMembers.length === 0) await loadTeamMembers();
+    }
+
+    // --- VIEW TASK ---
+    function openViewTaskModal(taskId) {
+        const task = allTasks.find(t => t.id == taskId);
+        if (!task) return;
+
+        document.getElementById('view-title').innerText = task.title;
+        document.getElementById('view-desc').innerText = task.description || 'No description provided.';
+        document.getElementById('view-project').innerText = task.project ? task.project.title : 'Project #' + task.project_id;
+        document.getElementById('view-created').innerText = new Date(task.created_at).toLocaleDateString();
+
+        // Status
+        const sEl = document.getElementById('view-status');
+        sEl.innerText = task.status;
+        sEl.className = 'text-xs font-semibold px-2 py-0.5 rounded border ';
+        if (task.status === 'Completed') sEl.classList.add('bg-emerald-100', 'text-emerald-700', 'border-emerald-200');
+        else if (task.status === 'In Progress') sEl.classList.add('bg-amber-100', 'text-amber-700', 'border-amber-200');
+        else sEl.classList.add('bg-slate-100', 'text-slate-600', 'border-slate-200');
+
+        // Priority
+        const pEl = document.getElementById('view-priority');
+        pEl.innerText = task.priority;
+        pEl.className = 'text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider ';
+        if (task.priority === 'High') pEl.classList.add('bg-red-100', 'text-red-700');
+        else if (task.priority === 'Medium') pEl.classList.add('bg-amber-100', 'text-amber-700');
+        else pEl.classList.add('bg-slate-100', 'text-slate-600');
+
+        // Deadline
+        const dEl = document.getElementById('view-deadline');
+        if (task.deadline) dEl.innerText = new Date(task.deadline).toLocaleString();
+        else dEl.innerText = 'No Deadline';
+
+        // Assignee
+        const aBox = document.getElementById('view-assignee-box');
+        if (task.assignee) {
+            const av = task.assignee.avatar_url || `https://ui-avatars.com/api/?name=${task.assignee.full_name}`;
+            aBox.innerHTML = `<img src="${av}" class="w-8 h-8 rounded-full border border-slate-200"><span class="text-sm font-semibold text-slate-700">${task.assignee.full_name}</span>`;
+        } else {
+            aBox.innerHTML = '<span class="text-sm text-slate-400 italic">Unassigned</span>';
+        }
+
+        document.getElementById('view-task-modal').classList.remove('hidden');
+    }
+
+    // --- EDIT TASK ---
+    async function openEditTaskModal(taskId) {
+        // Use loose comparison because ID might be number but passed as string
+        const task = allTasks.find(t => t.id == taskId);
+        if (!task) {
+            console.error("Task not found for edit:", taskId);
+            return;
+        }
+
+        // Load team members if not loaded (for assignee dropdown)
+        if (teamMembers.length === 0) await loadTeamMembers();
+
+        // Populate edit modal
+        document.getElementById('edit-task-id').value = task.id;
+        document.getElementById('edit-task-title').value = task.title;
+        document.getElementById('edit-task-desc').value = task.description || '';
+        document.getElementById('edit-task-priority').value = task.priority;
+        document.getElementById('edit-task-status').value = task.status;
+        document.getElementById('edit-task-project-title').value = task.project ? task.project.title : 'Unknown Project';
+
+        // Update Flatpickr
+        const fp = document.getElementById('edit-task-deadline')._flatpickr;
+        if (fp) fp.setDate(task.deadline || null);
+
+        // Populate Assignee Dropdown specifically for Edit (reuse teamMembers)
+        const sel = document.getElementById('edit-task-assignee');
+        sel.innerHTML = '<option value="">Unassigned</option>';
+        teamMembers.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.innerText = u.full_name || u.email;
+            if (u.id === task.assigned_to) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        document.getElementById('edit-task-assignee').value = task.assigned_to || ''; // Ensure correct selection
+
+        document.getElementById('edit-task-modal').classList.remove('hidden');
+    }
+
+    async function updateTask() {
+        const id = document.getElementById('edit-task-id').value;
+        const title = document.getElementById('edit-task-title').value.trim();
+        const desc = document.getElementById('edit-task-desc').value.trim();
+        const priority = document.getElementById('edit-task-priority').value;
+        const status = document.getElementById('edit-task-status').value;
+        const assigned_to = document.getElementById('edit-task-assignee').value;
+        const deadlineVal = document.getElementById('edit-task-deadline').value;
+
+        if (!title) { alert("Title is required"); return; }
+
+        let deadlineISO = null;
+        if (deadlineVal) deadlineISO = new Date(deadlineVal).toISOString();
+
+        try {
+            const res = await fetch(`/api/tasks/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, description: desc, priority, status, assigned_to, deadline: deadlineISO })
+            });
+
+            if (res.ok) {
+                document.getElementById('edit-task-modal').classList.add('hidden');
+                showToast('Task updated successfully!', 'success');
+                loadAllTasks();
+            } else {
+                const err = await res.json();
+                alert(err.error || 'Failed to update');
+            }
+        } catch (e) { console.error(e); alert("Update error"); }
+    }
+
+    function deleteTask(taskId) {
+        deleteTargetId = taskId;
+        document.getElementById('delete-confirm-modal').classList.remove('hidden');
+    }
+
+    async function confirmDeleteTask() {
+        if (!deleteTargetId) return;
+
+        try {
+            const res = await fetch(`/api/tasks/${deleteTargetId}`, { method: 'DELETE' });
+            if (res.ok) {
+                document.getElementById('delete-confirm-modal').classList.add('hidden');
+                showToast('Task deleted.', 'success');
+                loadAllTasks();
+            } else {
+                alert("Failed to delete task.");
+            }
+        } catch (e) { console.error(e); alert("Delete error"); }
+    }
+
+    // --- LOADERS ---
+
+    async function loadProjectsForModal() {
+        try {
+            const res = await fetch('/api/projects');
+            if (res.ok) {
+                projectsList = await res.json();
+                const sel = document.getElementById('task-project');
+                sel.innerHTML = '<option value="">Select Project...</option>';
+                projectsList.forEach(p => {
+                    // Only active projects
+                    if (p.status !== 'Completed') {
+                        const opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.innerText = p.title;
+                        sel.appendChild(opt);
+                    }
+                });
+            }
+        } catch (e) { console.error("Error loading projects", e); }
+    }
+
+    async function loadTeamMembers() {
+        try {
+            const res = await fetch('/api/team');
+            if (res.ok) {
+                teamMembers = await res.json();
+                // Populate Create Assignee
+                const sel = document.getElementById('task-assignee');
+                sel.innerHTML = '<option value="">Unassigned</option>';
+                teamMembers.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.innerText = u.full_name || u.email;
+                    sel.appendChild(opt);
+                });
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function createTask() {
+        const projectId = document.getElementById('task-project').value;
+        const title = document.getElementById('task-title').value;
+        const desc = document.getElementById('task-desc').value;
+        const priority = document.getElementById('task-priority').value;
+        const deadlineVal = document.getElementById('task-deadline').value;
+        const assigned_to = document.getElementById('task-assignee').value;
+
+        let isValid = true;
+        if (!projectId) {
+            document.getElementById('project-error-msg').classList.remove('hidden');
+            isValid = false;
+        }
+        if (!title.trim()) {
+            showInputError('task-error-msg', 'task-error-text', 'Title is required');
+            isValid = false;
+        }
+        if (!desc.trim()) {
+            showInputError('desc-error-msg', 'desc-error-text', 'Description is required');
+            isValid = false;
+        }
+        if (!assigned_to) {
+            document.getElementById('assignee-error-msg').classList.remove('hidden');
+            isValid = false;
+        }
+        if (!deadlineVal) {
+            document.getElementById('deadline-error-msg').classList.remove('hidden');
+            isValid = false;
+        }
+
+        if (!isValid) return;
+
+        const deadlineISO = new Date(deadlineVal).toISOString();
+
+        const res = await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_id: projectId,
+                title, description: desc, priority,
+                deadline: deadlineISO,
+                assigned_to
+            })
+        });
+
+        if (res.ok) {
+            document.getElementById('create-task-modal').classList.add('hidden');
+            showToast('Task created successfully!', 'success');
+            loadAllTasks();
+        } else {
+            const err = await res.json();
+            showInputError('task-error-msg', 'task-error-text', err.error || 'Unknown error');
+        }
+    }
+
+    function showInputError(containerId, textId, msg) {
+        document.getElementById(textId).innerText = msg;
+        document.getElementById(containerId).classList.remove('hidden');
+    }
 
     async function loadAllTasks() {
         const statusFilter = document.getElementById('task-filter-status').value;
@@ -101,6 +588,7 @@
             // We might need to handle huge lists with server-side pagination later
             const res = await fetch('/api/tasks');
             let tasks = await res.json();
+            allTasks = tasks; // Store globally
 
             if (tasks.error) throw new Error(tasks.error);
 
@@ -112,7 +600,7 @@
             document.getElementById('tasks-count').innerText = `Showing ${tasks.length} tasks`;
 
             if (tasks.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-slate-400">No tasks found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-slate-400">No tasks found.</td></tr>`;
                 return;
             }
 
@@ -121,18 +609,15 @@
                 row.className = 'hover:bg-slate-50 transition-colors';
 
                 // Colors
-                let statusClass = 'bg-slate-100 text-slate-700';
-                if (t.status === 'In Progress') statusClass = 'bg-blue-100 text-blue-700';
-                if (t.status === 'Completed') statusClass = 'bg-green-100 text-green-700';
+                const sCls = t.status === 'In Progress' ? 'bg-amber-100 text-amber-700' : (t.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700');
+                const pCls = t.priority === 'High' ? 'text-red-500 font-medium' : (t.priority === 'Medium' ? 'text-amber-600' : 'text-slate-500');
 
-                let priorityClass = 'text-slate-500';
-                if (t.priority === 'High') priorityClass = 'text-red-500 font-medium';
-                if (t.priority === 'Medium') priorityClass = 'text-amber-600';
-
-                // Assignee (Mockup or joined data)
-                // Note: The API needs to join 'projects' and 'users' for better display
-                // If API doesn't return joined data, we might show IDs or 'Loading...'
-                // For now assuming existing schema
+                // Assignee
+                let assigneeHtml = '<span class="text-slate-400 italic">Unassigned</span>';
+                if (t.assignee) {
+                    const av = t.assignee.avatar_url || `https://ui-avatars.com/api/?name=${t.assignee.full_name}`;
+                    assigneeHtml = `<img src="${av}" class="w-6 h-6 rounded-full"><span>${t.assignee.full_name}</span>`;
+                }
 
                 // Deadline Logic
                 let deadlineHtml = '<span class="text-slate-400">-</span>';
@@ -146,11 +631,11 @@
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                     if (t.status === 'Completed') {
-                        deadlineHtml = `<span class="text-slate-400 line-through">${due.toLocaleDateString()}</span>`;
+                        deadlineHtml = `<span class="text-slate-400 line-through">${new Date(t.deadline).toLocaleDateString()}</span>`;
                     } else if (diffDays < 0) {
                         deadlineHtml = `
                             <div class="text-red-600 font-bold flex flex-col">
-                                <span>${due.toLocaleDateString()}</span>
+                                <span>${new Date(t.deadline).toLocaleDateString()}</span>
                                 <span class="text-[10px] uppercase tracking-wide">Overdue by ${Math.abs(diffDays)} days</span>
                             </div>`;
                     } else if (diffDays === 0) {
@@ -168,7 +653,7 @@
                     } else {
                         deadlineHtml = `
                             <div class="text-slate-600 flex flex-col">
-                                <span>${due.toLocaleDateString()}</span>
+                                <span>${new Date(t.deadline).toLocaleDateString()}</span>
                                 <span class="text-[10px] text-slate-400">In ${diffDays} days</span>
                             </div>`;
                     }
@@ -183,27 +668,31 @@
                         ${t.project ? t.project.title : 'Project #' + t.project_id}
                     </td>
                     <td class="px-6 py-4">
-                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">${t.status}</span>
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${sCls}">${t.status}</span>
                     </td>
-                    <td class="px-6 py-4 text-sm ${priorityClass}">
+                    <td class="px-6 py-4 text-sm ${pCls}">
                         ${t.priority}
                     </td>
                     <td class="px-6 py-4 text-sm text-slate-600">
                         <div class="flex items-center space-x-2">
-                             ${t.assignee ?
-                        `<img src="${t.assignee.avatar_url || 'https://ui-avatars.com/api/?name=' + t.assignee.full_name}" class="w-6 h-6 rounded-full">
-                                 <span>${t.assignee.full_name}</span>`
-                        : '<span class="text-slate-400 italic">Unassigned</span>'}
+                             ${assigneeHtml}
                         </div>
                     </td>
                     <td class="px-6 py-4 text-sm">
                         ${deadlineHtml}
                     </td>
                     <td class="px-6 py-4 text-sm text-slate-500">
-                        ${t.created_at ? new Date(t.created_at).toLocaleString() : '-'}
+                        ${t.created_at ? new Date(t.created_at).toLocaleDateString() : '-'}
                     </td>
                     <td class="px-6 py-4 text-right">
-                        <a href="/projects/${t.project_id}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View</a>
+                        <div class="flex items-center justify-end space-x-2">
+                            <button onclick="openEditTaskModal('${t.id}')" class="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition" title="Edit">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            </button>
+                            <button onclick="deleteTask('${t.id}')" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition" title="Delete">
+                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -211,7 +700,7 @@
 
         } catch (e) {
             console.error(e);
-            tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-red-500">Error loading tasks: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-red-500">Error loading tasks: ${e.message}</td></tr>`;
         }
     }
 </script>
