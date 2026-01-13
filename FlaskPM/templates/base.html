@@ -122,6 +122,13 @@
 
     <div class="flex h-screen w-full relative">
 
+        <!-- Mobile Overlay -->
+        <div id="mobile-overlay" onclick="toggleSidebar()"
+            class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 hidden md:hidden transition-all duration-300 opacity-0"
+            style="transition: opacity 0.3s ease-in-out;">
+        </div>
+
+
         <!-- Sidebar -->
         <aside
             class="w-64 h-full glass-sidebar flex flex-col transition-all duration-300 z-50 fixed md:relative -translate-x-full md:translate-x-0"
@@ -254,15 +261,15 @@
             </div>
         </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 h-screen overflow-y-auto relative no-scrollbar">
+        <!-- Main Content Wrapper -->
+        <div class="flex-1 flex flex-col h-screen relative overflow-hidden">
             <!-- Header -->
             <header
-                class="h-20 flex items-center justify-between px-8 sticky top-0 z-40 bg-white/50 backdrop-blur-xl border-b border-white/50">
+                class="absolute top-0 w-full h-20 flex items-center justify-between px-8 z-40 bg-white/50 backdrop-blur-xl border-b border-white/50">
                 <div class="flex items-center space-x-4">
                     <!-- Mobile Toggle -->
-                    <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')"
-                        class="md:hidden p-2 text-slate-500">
+                    <button onclick="toggleSidebar()"
+                        class="md:hidden p-2 text-slate-500 hover:text-emerald-600 transition">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 6h16M4 12h16M4 18h16"></path>
@@ -320,10 +327,10 @@
 
             </header>
 
-            <div class="p-6">
+            <main class="flex-1 overflow-y-auto pt-24 px-6 pb-6 no-scrollbar">
                 {% block content %}{% endblock %}
-            </div>
-        </main>
+            </main>
+        </div>
     </div>
     <!-- AI Chat Widget -->
     <div id="ai-chat-widget" class="fixed bottom-6 right-6 z-50 font-sans">
@@ -518,6 +525,31 @@
         console.log("Antigravity PM: Inline Logic Loaded");
 
         // --- Helpers ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+
+            // Current state check
+            const isClosed = sidebar.classList.contains('-translate-x-full');
+
+            if (isClosed) {
+                // Open Sidebar
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                // Small delay to allow display:block to apply before opacity transition
+                setTimeout(() => {
+                    overlay.classList.remove('opacity-0');
+                }, 10);
+            } else {
+                // Close Sidebar
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                }, 300);
+            }
+        }
+
         function formatDate(dateStr) {
             if (!dateStr) return '';
             const d = new Date(dateStr);
@@ -715,6 +747,30 @@
                 if (btn && btn.contains(e.target)) return;
                 if (!dropdown.contains(e.target)) {
                     dropdown.classList.add('hidden');
+                }
+            });
+
+            // Mobile Sidebar: Close when clicking a menu link
+            const sidebarLinks = document.querySelectorAll('#sidebar nav a');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    // Check if on mobile
+                    if (window.innerWidth < 768) {
+                        const sidebar = document.getElementById('sidebar');
+                        if (!sidebar.classList.contains('-translate-x-full')) {
+                            toggleSidebar();
+                        }
+                    }
+                });
+            });
+
+            // Handle Resize
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768) {
+                    const overlay = document.getElementById('mobile-overlay');
+                    if (overlay && !overlay.classList.contains('hidden')) {
+                        overlay.classList.add('hidden', 'opacity-0');
+                    }
                 }
             });
         });
