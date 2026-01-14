@@ -255,73 +255,17 @@
 
     // CONFIGURATION: Enter your Google Maps API Key here for better accuracy
     // If empty, it falls back to free OpenStreetMap (less accurate for Indian villages)
-    const GOOGLE_API_KEY = '';
+    const GOOGLE_API_KEY = 'AIzaSyAdf69fjj_RBDuEliQSLGOqm0HCu9NvhtY';
 
     // Step 1: Detect Location & Open Modal
-    async function resolveLocationName(lat, long) {
-        let locationStr = `${lat.toFixed(5)}, ${long.toFixed(5)}`;
+    async function resolveLocationName(lat, lon) {
         try {
-            if (GOOGLE_API_KEY) {
-                const gRes = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${long}&key=${GOOGLE_API_KEY}`);
-                const gData = await gRes.json();
-                if (gData.status === 'OK' && gData.results && gData.results.length > 0) {
-                    return gData.results[0].formatted_address;
-                }
-                return locationStr;
-            }
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${long}&zoom=18&addressdetails=1`, {
-                headers: { 'Accept-Language': 'en-IN,en-GB,en-US;q=0.9,en;q=0.8' },
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-
-            if (geoRes.ok) {
-                const geoData = await geoRes.json();
-                if (geoData.address) {
-                    const addr = geoData.address;
-
-                    const area =
-                        addr.suburb ||
-                        addr.neighbourhood ||
-                        addr.residential ||
-                        addr.locality ||
-                        addr.village ||
-                        addr.hamlet ||
-                        addr.city_district ||
-                        addr.road ||
-                        '';
-
-                    const city =
-                        addr.city ||
-                        addr.town ||
-                        addr.municipality ||
-                        addr.county ||
-                        '';
-
-                    const state = addr.state || '';
-
-                    let parts = [];
-                    if (area && area !== city) parts.push(area);
-                    if (city) parts.push(city);
-                    if (state) parts.push(state);
-
-                    // FINAL fallback: try display_name ONLY for area
-                    if (parts.length < 3 && geoData.display_name) {
-                        const d = geoData.display_name.split(',').map(p => p.trim());
-                        if (d.length > 0 && !parts.includes(d[0])) {
-                            parts.unshift(d[0]);
-                        }
-                    }
-
-                    locationStr = parts.slice(0, 3).join(', ');
-                }
-            }
-        } catch (err) { console.warn("Reverse geo error", err); }
-
-        return locationStr;
+            const res = await fetch(`/api/reverse-geocode?lat=${lat}&lon=${lon}`);
+            const data = await res.json();
+            return data.location;
+        } catch {
+            return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        }
     }
 
     async function handlePunch() {
@@ -353,7 +297,7 @@
             // DEBUG INFO for user
             document.getElementById('loc-debug').innerText = `Source: ${finalSource} | ${finalLat.toFixed(4)}, ${finalLong.toFixed(4)}`;
 
-            // OPEN MODAL
+            // OPEN MODAL with value
             document.getElementById('loc-text').innerText = locationStr;
             document.getElementById('loc-modal').classList.remove('hidden');
 
@@ -380,7 +324,7 @@
 
     // Step 2: Confirm & Send to Server
     async function confirmPunch() {
-        const finalLoc = document.getElementById('loc-text').innerText;
+        const finalLoc = document.getElementById('loc-text').innerText; // Read from input
         if (!finalLoc || finalLoc.trim().length < 3) {
             showToast("Please enter a valid location.", "warning");
             return;

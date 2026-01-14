@@ -1,0 +1,24 @@
+{
+    "name": "digianchorz-desktop",
+    "version": "1.0.0",
+    "description": "Desktop Client for DigiAnchorz PM",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "pack": "electron-builder --dir",
+        "dist": "electron-builder"
+    },
+    "author": "Antigravity",
+    "license": "ISC",
+    "devDependencies": {
+        "electron": "^28.0.0",
+        "electron-builder": "^24.9.1"
+    },
+    "build": {
+        "appId": "com.digianchorz.pm",
+        "win": {
+            "target": "nsis",
+            "icon": "icon.ico"
+        }
+    }
+}

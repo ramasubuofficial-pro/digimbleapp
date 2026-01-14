@@ -61,6 +61,72 @@ def create_app():
                     # Optional: Force logout on error to be safe? 
                     # For now, let's allow ensuring it's not a temp glitch.
 
+    # Reverse Geocode API (OSM Fallback)
+    import requests
+    from flask import request, jsonify
+
+    @app.route("/api/reverse-geocode")
+    def reverse_geocode():
+        lat = request.args.get("lat")
+        lon = request.args.get("lon")
+
+        headers = {
+            "User-Agent": "DIGIANCHORZ-Attendance/1.0 (contact@digianchorz.com)"
+        }
+
+        url = "https://nominatim.openstreetmap.org/reverse"
+        params = {
+            "format": "json",
+            "lat": lat,
+            "lon": lon,
+            "zoom": 19,
+            "addressdetails": 1,
+            "extratags": 1
+        }
+
+        try:
+            r = requests.get(url, params=params, headers=headers, timeout=6)
+            data = r.json()
+            addr = data.get("address", {})
+
+            # ✅ INDIA-OPTIMIZED AREA RESOLUTION
+            area = (
+                addr.get("suburb")
+                or addr.get("neighbourhood")
+                or addr.get("residential")
+                or addr.get("quarter")
+                or addr.get("city_district")
+                or addr.get("county")
+                or addr.get("village")
+                or addr.get("road")
+                or ""
+            )
+
+            city = (
+                addr.get("city")
+                or addr.get("town")
+                or addr.get("municipality")
+                or addr.get("county")
+                or ""
+            )
+
+            state = addr.get("state") or ""
+
+            # Deduplicate
+            if area == city:
+                area = ""
+
+            parts = [area, city, state]
+            location = ", ".join([p for p in parts if p])
+
+            if location:
+                return jsonify({"location": location})
+
+        except Exception as e:
+            print("Reverse geo error:", e)
+
+        return jsonify({"location": f"{lat}, {lon}"})
+
     return app
 
 app = create_app()
