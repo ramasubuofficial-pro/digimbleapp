@@ -305,6 +305,12 @@
     let projectsList = [];
     let deleteTargetId = null;
 
+    const STATUS_COLORS = {
+        'To Do': 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+        'In Progress': 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+        'Completed': 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
         loadAllTasks();
 
@@ -609,55 +615,18 @@
                 row.className = 'hover:bg-slate-50 transition-colors';
 
                 // Colors
-                const sCls = t.status === 'In Progress' ? 'bg-amber-100 text-amber-700' : (t.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700');
+                // Colors
+                const sCls = STATUS_COLORS[t.status] || STATUS_COLORS['To Do'];
                 const pCls = t.priority === 'High' ? 'text-red-500 font-medium' : (t.priority === 'Medium' ? 'text-amber-600' : 'text-slate-500');
 
-                // Assignee
+                // Assignment HTML
                 let assigneeHtml = '<span class="text-slate-400 italic">Unassigned</span>';
                 if (t.assignee) {
                     const av = t.assignee.avatar_url || `https://ui-avatars.com/api/?name=${t.assignee.full_name}`;
                     assigneeHtml = `<img src="${av}" class="w-6 h-6 rounded-full"><span>${t.assignee.full_name}</span>`;
                 }
 
-                // Deadline Logic
-                let deadlineHtml = '<span class="text-slate-400">-</span>';
-                if (t.deadline) {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const due = new Date(t.deadline);
-                    due.setHours(0, 0, 0, 0);
-
-                    const diffTime = due - today;
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                    if (t.status === 'Completed') {
-                        deadlineHtml = `<span class="text-slate-400 line-through">${new Date(t.deadline).toLocaleDateString()}</span>`;
-                    } else if (diffDays < 0) {
-                        deadlineHtml = `
-                            <div class="text-red-600 font-bold flex flex-col">
-                                <span>${new Date(t.deadline).toLocaleDateString()}</span>
-                                <span class="text-[10px] uppercase tracking-wide">Overdue by ${Math.abs(diffDays)} days</span>
-                            </div>`;
-                    } else if (diffDays === 0) {
-                        deadlineHtml = `
-                            <div class="text-orange-600 font-bold flex flex-col">
-                                <span>Today</span>
-                                <span class="text-[10px] uppercase tracking-wide">Due Today</span>
-                            </div>`;
-                    } else if (diffDays === 1) {
-                        deadlineHtml = `
-                            <div class="text-amber-600 font-medium flex flex-col">
-                                <span>Tomorrow</span>
-                                <span class="text-[10px]">Upcoming</span>
-                            </div>`;
-                    } else {
-                        deadlineHtml = `
-                            <div class="text-slate-600 flex flex-col">
-                                <span>${new Date(t.deadline).toLocaleDateString()}</span>
-                                <span class="text-[10px] text-slate-400">In ${diffDays} days</span>
-                            </div>`;
-                    }
-                }
+                const deadlineHtml = getDeadlineHtml(t);
 
                 row.innerHTML = `
                     <td class="px-6 py-4">
@@ -668,7 +637,11 @@
                         ${t.project ? t.project.title : 'Project #' + t.project_id}
                     </td>
                     <td class="px-6 py-4">
-                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${sCls}">${t.status}</span>
+                         <select onchange="updateTaskStatus('${t.id}', this)" class="appearance-none cursor-pointer outline-none border-0 rounded-full text-xs font-bold px-3 py-1 text-center transition-colors ${sCls}">
+                            <option value="To Do" ${t.status === 'To Do' ? 'selected' : ''}>To Do</option>
+                            <option value="In Progress" ${t.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="Completed" ${t.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                        </select>
                     </td>
                     <td class="px-6 py-4 text-sm ${pCls}">
                         ${t.priority}
@@ -704,6 +677,77 @@
         } catch (e) {
             console.error(e);
             tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-red-500">Error loading tasks: ${e.message}</td></tr>`;
+        }
+    }
+
+    async function updateTaskStatus(taskId, selectEl) {
+        const newStatus = selectEl.value;
+        const task = allTasks.find(t => t.id == taskId);
+
+        // Optimistic styling update
+        const baseClasses = "appearance-none cursor-pointer outline-none border-0 rounded-full text-xs font-bold px-3 py-1 text-center transition-colors";
+        selectEl.className = `${baseClasses} ${STATUS_COLORS[newStatus] || STATUS_COLORS['To Do']}`;
+
+        try {
+            const res = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            if (res.ok) {
+                showToast(`Status updated to ${newStatus}`, 'success');
+                if (task) task.status = newStatus;
+
+                // Refresh to update styles (e.g. deadline strikethrough)
+                await loadAllTasks();
+            } else {
+                throw new Error("Update failed");
+            }
+        } catch (e) {
+            console.error(e);
+            showToast('Failed to update status', 'error');
+            loadAllTasks(); // Revert
+        }
+    }
+
+    function getDeadlineHtml(t) {
+        if (!t.deadline) return '<span class="text-slate-400">-</span>';
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const due = new Date(t.deadline);
+        due.setHours(0, 0, 0, 0);
+
+        const diffTime = due - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (t.status === 'Completed') {
+            return `<span class="text-slate-400 line-through">${new Date(t.deadline).toLocaleDateString()}</span>`;
+        } else if (diffDays < 0) {
+            return `
+                <div class="text-red-600 font-bold flex flex-col">
+                    <span>${new Date(t.deadline).toLocaleDateString()}</span>
+                    <span class="text-[10px] uppercase tracking-wide">Overdue by ${Math.abs(diffDays)} days</span>
+                </div>`;
+        } else if (diffDays === 0) {
+            return `
+                <div class="text-orange-600 font-bold flex flex-col">
+                    <span>Today</span>
+                    <span class="text-[10px] uppercase tracking-wide">Due Today</span>
+                </div>`;
+        } else if (diffDays === 1) {
+            return `
+                <div class="text-amber-600 font-medium flex flex-col">
+                    <span>Tomorrow</span>
+                    <span class="text-[10px]">Upcoming</span>
+                </div>`;
+        } else {
+            return `
+                <div class="text-slate-600 flex flex-col">
+                    <span>${new Date(t.deadline).toLocaleDateString()}</span>
+                    <span class="text-[10px] text-slate-400">In ${diffDays} days</span>
+                </div>`;
         }
     }
 </script>
