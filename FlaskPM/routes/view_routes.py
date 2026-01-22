@@ -51,7 +51,13 @@ def calendar():
 @view_bp.route('/projects/<project_id>')
 @login_required
 def project_details(project_id):
-    return render_template('project_details.html', user=session['user'], project_id=project_id)
+    user_id = session['user']['id']
+    try:
+        user_res = supabase.table('users').select('role').eq('id', user_id).execute()
+        user_role = user_res.data[0]['role'] if user_res.data else 'Team Member'
+    except:
+        user_role = 'Team Member'
+    return render_template('project_details.html', user=session['user'], project_id=project_id, role=user_role)
 
 @view_bp.route('/settings')
 @login_required

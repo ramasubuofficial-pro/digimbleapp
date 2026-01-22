@@ -35,7 +35,15 @@
                 </div>
             </div>
         </div>
-        <div>
+        <div class="flex items-center space-x-3">
+            <button id="add-member-btn" onclick="openAddMemberModal()"
+                class="hidden px-4 py-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                </svg>
+                Add Member
+            </button>
             <button onclick="openCreateTaskModal()"
                 class="px-4 py-2 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 transition flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -388,8 +396,38 @@
     </div>
 </div>
 
+</div>
+
+<!-- Add Member Modal -->
+<div id="add-member-modal"
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+        <h3 class="text-lg font-bold text-slate-800 mb-4">Add Team Member</h3>
+        <p class="text-sm text-slate-500 mb-4">Select a user to add to this project.</p>
+
+        <div class="space-y-4">
+            <div>
+                <select id="new-member-select"
+                    class="w-full px-4 py-2 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                    <option value="">Loading users...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-end space-x-3">
+            <button onclick="document.getElementById('add-member-modal').classList.add('hidden')"
+                class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg transition">Cancel</button>
+            <button onclick="addMember()"
+                class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-lg shadow-emerald-500/30 transition">Add
+                Member</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const PROJECT_ID = '{{ project_id }}';
+    const CURRENT_USER_ROLE = "{{ role }}";
+    let projectMemberIDs = [];
     let teamMembers = [];
     let currentProjectTasks = [];
     let currentPreviewTaskId = null;
@@ -459,6 +497,7 @@
                 const teamBox = document.getElementById('project-team-list');
                 teamBox.innerHTML = '';
                 if (project.members && project.members.length > 0) {
+                    projectMemberIDs = project.members.map(m => m.id);
                     project.members.forEach(m => {
                         const avatar = m.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.full_name)}`;
                         const img = document.createElement('img');
@@ -468,7 +507,13 @@
                         teamBox.appendChild(img);
                     });
                 } else {
+                    projectMemberIDs = [];
                     teamBox.innerHTML = '<span class="text-xs text-slate-400 italic mt-1">No members</span>';
+                }
+
+                // Show Add Button if Admin
+                if (CURRENT_USER_ROLE === 'Admin') {
+                    document.getElementById('add-member-btn').classList.remove('hidden');
                 }
 
             } else {
@@ -758,6 +803,66 @@
             body: JSON.stringify({ status: next })
         });
         loadTasks();
+    }
+
+    // --- Add Member Logic ---
+    async function openAddMemberModal() {
+        document.getElementById('add-member-modal').classList.remove('hidden');
+        const sel = document.getElementById('new-member-select');
+        sel.innerHTML = '<option>Loading...</option>';
+        sel.disabled = true;
+
+        try {
+            const res = await fetch('/api/team');
+            if (res.ok) {
+                const allUsers = await res.json();
+                // Filter out existing members
+                const startLen = allUsers.length;
+                const available = allUsers.filter(u => !projectMemberIDs.includes(u.id));
+
+                sel.innerHTML = '<option value="">Select User...</option>';
+                available.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.innerText = `${u.full_name || u.email} (${u.role})`;
+                    sel.appendChild(opt);
+                });
+                sel.disabled = false;
+
+                if (available.length === 0) {
+                    sel.innerHTML = '<option>All users are already members</option>';
+                    sel.disabled = true;
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            sel.innerHTML = '<option>Error loading users</option>';
+        }
+    }
+
+    async function addMember() {
+        const userId = document.getElementById('new-member-select').value;
+        if (!userId) return;
+
+        try {
+            const res = await fetch(`/api/projects/${PROJECT_ID}/members`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            });
+
+            if (res.ok) {
+                showToast('Member added successfully', 'success');
+                document.getElementById('add-member-modal').classList.add('hidden');
+                loadProjectDetails(); // Reload to update list
+            } else {
+                const err = await res.json();
+                alert(err.error || 'Failed to add member'); // Fallback to alert if showToast weird, but showToast should work
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Network error');
+        }
     }
 
     // --- NEW: Tabs, Comments & Attachments Logic ---

@@ -220,6 +220,58 @@ def update_project(project_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@api_bp.route('/projects/<project_id>/members', methods=['POST'])
+def add_project_member(project_id):
+    user_id = get_current_user_id()
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        # Check Admin Role
+        u_res = supabase.table('users').select('role').eq('id', user_id).single().execute()
+        if not u_res.data or u_res.data.get('role') != 'Admin':
+             return jsonify({"error": "Unauthorized: Admin privileges required"}), 403
+
+        data = request.json
+        new_member_id = data.get('user_id')
+        if not new_member_id:
+            return jsonify({"error": "User ID is required"}), 400
+
+        # Check if already member
+        check = supabase.table('project_members').select('*').eq('project_id', project_id).eq('user_id', new_member_id).execute()
+        if check.data:
+            return jsonify({"error": "User is already a member"}), 400
+
+        # Add Member
+        res = supabase.table('project_members').insert({
+            "project_id": project_id,
+            "user_id": new_member_id,
+            "role": "Member"
+        }).execute()
+        
+        # Notify New Member
+        try:
+            # Get Project Title
+            p_res = supabase.table('projects').select('title').eq('id', project_id).single().execute()
+            p_title = p_res.data['title'] if p_res.data else 'Unknown Project'
+            
+            # Get Creator/Admin Name
+            user_data = session.get('user', {})
+            admin_name = user_data.get('user_metadata', {}).get('full_name', 'Admin')
+
+            broadcast_notification(
+                title="Added to Project",
+                message=f"{admin_name} added you to project [{p_title}].",
+                link=f"/projects/{project_id}",
+                recipient_ids=[new_member_id]
+            )
+        except Exception as e:
+            print(f"Notify error: {e}")
+
+        return jsonify({"message": "Member added successfully"}), 201
+    except Exception as e:
+        print(f"Add Member Error: {e}")
+        return jsonify({"error": str(e)}), 400
+
 @api_bp.route("/projects", methods=["POST"])
 def create_project():
     user_id = get_current_user_id()
