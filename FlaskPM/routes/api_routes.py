@@ -220,6 +220,29 @@ def update_project(project_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@api_bp.route('/projects/<project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    user_id = get_current_user_id()
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        # Check Admin Role
+        u_res = supabase.table('users').select('role').eq('id', user_id).single().execute()
+        if not u_res.data or u_res.data.get('role') != 'Admin':
+             return jsonify({"error": "Unauthorized: Admin privileges required"}), 403
+
+        # Delete Project (Cascades to tasks, members, etc.)
+        res = supabase.table('projects').delete().eq('id', project_id).execute()
+        
+        # Check if deletion happened (res.data shouldn't be empty if it existed)
+        if not res.data:
+            return jsonify({"error": "Project not found or already deleted"}), 404
+
+        return jsonify({"message": "Project deleted successfully", "deleted_project": res.data[0]})
+    except Exception as e:
+        print(f"Delete Project Error: {e}")
+        return jsonify({"error": str(e)}), 400
+
 @api_bp.route('/projects/<project_id>/members', methods=['POST'])
 def add_project_member(project_id):
     user_id = get_current_user_id()
@@ -605,33 +628,31 @@ def upload_task_attachment(task_id):
         return jsonify({"error": "No selected file"}), 400
         
     try:
+        # Use Admin Client (Service Role) to bypass RLS policies for BOTH Storage and DB
+        admin_client = get_supabase_admin()
+        
+        if not admin_client:
+            print("CRITICAL: Admin client not available. Check SUPABASE_SERVICE_KEY.")
+            return jsonify({"error": "Server Configuration Error: Missing Admin Privileges"}), 500
+
         # 1. Upload to Supabase Storage
-        # Bucket: 'task-attachments' (Must be created in Supabase Dashboard!)
         file_ext = file.filename.split('.')[-1]
         unique_filename = f"{task_id}/{uuid.uuid4()}.{file_ext}"
         file_content = file.read()
         
-        # Upload
-        storage_res = supabase.storage.from_('task-attachments').upload(
+        # Upload using Admin Client
+        storage_res = admin_client.storage.from_('task-attachments').upload(
             path=unique_filename,
             file=file_content,
             file_options={"content-type": file.content_type}
         )
         
         # 2. Get Public URL
-        # Assuming bucket is public
-        public_url = supabase.storage.from_('task-attachments').get_public_url(unique_filename)
+        public_url = admin_client.storage.from_('task-attachments').get_public_url(unique_filename)
         
         # 3. Insert into DB Table
-        # Use Admin Client (Service Role) to bypass RLS policies
-        admin_client = get_supabase_admin()
-        
-        if not admin_client:
-            print("CRITICAL: Admin client not available for upload. Check SUPABASE_SERVICE_KEY.")
-            return jsonify({"error": "Server Configuration Error: Missing Admin Privileges"}), 500
-
         db_res = admin_client.table('task_attachments').insert({
-            'task_id': int(task_id), # Ensure int/bigint
+            'task_id': int(task_id), 
             'user_id': user_id,
             'file_name': file.filename,
             'file_url': public_url,
@@ -643,6 +664,65 @@ def upload_task_attachment(task_id):
     except Exception as e:
         print(f"Upload Error: {e}")
         return jsonify({"error": f"Upload failed: {str(e)}"}), 400
+
+@api_bp.route('/attachments/<attachment_id>', methods=['DELETE'])
+def delete_attachment(attachment_id):
+    user_id = get_current_user_id()
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        # 1. Fetch Attachment to verify ownership and get file path
+        # Using Admin client just in case read is also protected/finicky, though public read should be fine.
+        # But we need 'user_id' from it.
+        admin_client = get_supabase_admin()
+        if not admin_client:
+             return jsonify({"error": "Server Config Error"}), 500
+
+        res = admin_client.table('task_attachments').select('*').eq('id', attachment_id).single().execute()
+        if not res.data:
+            return jsonify({"error": "Attachment not found"}), 404
+            
+        attachment = res.data
+        
+        # 2. Check Permissions
+        # Allow deletion if User is the Uploader OR User is Admin
+        is_owner = (attachment['user_id'] == user_id)
+        
+        is_admin = False
+        if not is_owner:
+            u_res = supabase.table('users').select('role').eq('id', user_id).single().execute()
+            if u_res.data and u_res.data.get('role') == 'Admin':
+                is_admin = True
+        
+        if not (is_owner or is_admin):
+            return jsonify({"error": "Unauthorized: You can only delete your own attachments"}), 403
+
+        # 3. Delete from Storage
+        # Construct path from URL or if we saved it? 
+        # We saved "unique_filename" as the path in the upload step but didn't store it explicitly in DB column 'path' maybe?
+        # The 'file_url' is "https://.../storage/v1/object/public/task-attachments/task_id/uuid.ext"
+        # The storage path is "task_id/uuid.ext".
+        
+        # Attempt to extract path from URL
+        file_url = attachment.get('file_url', '')
+        # Simple hack: split by 'task-attachments/'
+        if 'task-attachments/' in file_url:
+            storage_path = file_url.split('task-attachments/')[-1]
+            try:
+                # Remove from storage
+                # Note: 'remove' takes a list of paths
+                admin_client.storage.from_('task-attachments').remove([storage_path])
+            except Exception as se:
+                print(f"Storage Delete Warning: {se}")
+        
+        # 4. Delete from DB
+        admin_client.table('task_attachments').delete().eq('id', attachment_id).execute()
+        
+        return jsonify({"success": True, "message": "Attachment deleted"})
+
+    except Exception as e:
+        print(f"Delete Attachment Error: {e}")
+        return jsonify({"error": str(e)}), 400
 @api_bp.route("/notifications", methods=["GET"])
 def get_notifications():
     user_id = get_current_user_id()

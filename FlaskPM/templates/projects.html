@@ -193,6 +193,11 @@
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                             Re-activate Project
                         </button>`}
+                        <div class="border-t border-slate-100 my-1"></div>
+                        <button onclick="updateStatus(event, '${p.id}', 'DELETE')" class="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center transition">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862A2 2 0 016.862 21L6 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            Delete Project
+                        </button>
                     </div>
                 </div>
             ` : '';
@@ -246,13 +251,23 @@
             title.innerText = 'Mark as Completed?';
             msg.innerText = 'This will mark the project as finished and notify all members.';
             btn.className = "px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg font-medium shadow-lg shadow-emerald-500/30 transition";
+            btn.innerText = "Confirm"; // Reset text
             iconBg.className = "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-100 mb-4";
             icon.className = "h-6 w-6 text-emerald-600";
             icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />';
+        } else if (status === 'DELETE') {
+            title.innerText = 'Delete Project?';
+            msg.innerText = 'Are you sure you want to PERMANENTLY delete this project? All tasks, files, and data will be lost. This cannot be undone.';
+            btn.className = "px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg font-medium shadow-lg shadow-red-500/30 transition";
+            btn.innerText = "Delete Forever";
+            iconBg.className = "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4";
+            icon.className = "h-6 w-6 text-red-600";
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862A2 2 0 016.862 21L6 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />';
         } else {
             title.innerText = 'Re-activate Project?';
             msg.innerText = 'This will set the project status back to Active.';
             btn.className = "px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-medium shadow-lg shadow-blue-500/30 transition";
+            btn.innerText = "Confirm";
             iconBg.className = "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4";
             icon.className = "h-6 w-6 text-blue-600";
             icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />';
@@ -278,11 +293,16 @@
         btn.disabled = true;
 
         try {
-            const res = await fetch(`/api/projects/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: status })
-            });
+            let res;
+            if (status === 'DELETE') {
+                res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+            } else {
+                res = await fetch(`/api/projects/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: status })
+                });
+            }
 
             if (res.ok) {
                 showToast(`Project marked as ${status}`, 'success');

@@ -220,7 +220,7 @@
 
 <!-- Delete Confirmation Modal -->
 <div id="delete-confirm-modal"
-    class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-60 flex items-center justify-center p-4">
+    class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
         <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
             <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -228,13 +228,12 @@
                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
         </div>
-        <h3 class="text-lg font-bold text-slate-900 mb-2">Delete Task?</h3>
-        <p class="text-sm text-slate-500 mb-6">Are you sure you want to permanently delete this task? This action cannot
-            be undone.</p>
+        <h3 id="del-modal-title" class="text-lg font-bold text-slate-900 mb-2">Delete Item?</h3>
+        <p id="del-modal-desc" class="text-sm text-slate-500 mb-6">Are you sure you want to delete this?</p>
         <div class="flex space-x-3 justify-center">
             <button onclick="document.getElementById('delete-confirm-modal').classList.add('hidden')"
                 class="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg font-medium transition">Cancel</button>
-            <button onclick="confirmDeleteTask()"
+            <button id="del-modal-btn"
                 class="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg font-medium shadow-lg shadow-red-500/30 transition">Yes,
                 Delete</button>
         </div>
@@ -448,28 +447,30 @@
         });
 
         document.getElementById('create-task-modal').classList.remove('hidden');
-        if (teamMembers.length === 0) {
-            await loadTeamMembers();
-        }
+        populateAssigneeSelect('task-assignee');
     }
 
-    async function loadTeamMembers() {
-        try {
-            const res = await fetch('/api/team');
-            if (res.ok) {
-                teamMembers = await res.json();
-                const sel = document.getElementById('task-assignee');
-                // Keep "Unassigned" as first option
-                sel.innerHTML = '<option value="">Assign To...</option>';
-                teamMembers.forEach(u => {
-                    const opt = document.createElement('option');
-                    opt.value = u.id;
-                    opt.innerText = u.full_name || u.email;
-                    sel.appendChild(opt);
-                });
-            }
-        } catch (e) { console.error(e); }
+    function populateAssigneeSelect(selectId, selectedId = null) {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        // Reset
+        sel.innerHTML = '<option value="">' + (selectId === 'task-assignee' ? 'Assign To...' : 'Unassigned') + '</option>';
+
+        if (teamMembers.length === 0) {
+            // Optional: Show "No members" if really empty
+            return;
+        }
+
+        teamMembers.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.innerText = u.full_name || u.email || 'Unknown';
+            if (selectedId && u.id === selectedId) opt.selected = true;
+            sel.appendChild(opt);
+        });
     }
+
+
 
     document.addEventListener('DOMContentLoaded', () => {
         loadProjectDetails();
@@ -498,6 +499,7 @@
                 teamBox.innerHTML = '';
                 if (project.members && project.members.length > 0) {
                     projectMemberIDs = project.members.map(m => m.id);
+                    teamMembers = project.members; // Store for Dropdowns
                     project.members.forEach(m => {
                         const avatar = m.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.full_name)}`;
                         const img = document.createElement('img');
@@ -711,8 +713,6 @@
         const task = currentProjectTasks.find(t => t.id === taskId);
         if (!task) return;
 
-        if (teamMembers.length === 0) await loadTeamMembers();
-
         document.getElementById('edit-task-id').value = task.id;
         document.getElementById('edit-task-title').value = task.title;
         document.getElementById('edit-task-desc').value = task.description || '';
@@ -720,15 +720,7 @@
         document.getElementById('edit-task-status').value = task.status;
 
         // Populate Assignee for Edit
-        const sel = document.getElementById('edit-task-assignee');
-        sel.innerHTML = '<option value="">Unassigned</option>';
-        teamMembers.forEach(u => {
-            const opt = document.createElement('option');
-            opt.value = u.id;
-            opt.innerText = u.full_name || u.email;
-            if (u.id === task.assigned_to) opt.selected = true;
-            sel.appendChild(opt);
-        });
+        populateAssigneeSelect('edit-task-assignee', task.assigned_to);
 
         // Deadline
         const fp = document.getElementById('edit-task-deadline')._flatpickr;
@@ -770,6 +762,12 @@
 
     function deleteTask(taskId) {
         deleteTargetId = taskId;
+        document.getElementById('del-modal-title').innerText = 'Delete Task?';
+        document.getElementById('del-modal-desc').innerText = 'Are you sure you want to permanently delete this task?';
+
+        const btn = document.getElementById('del-modal-btn');
+        btn.onclick = confirmDeleteTask;
+
         document.getElementById('delete-confirm-modal').classList.remove('hidden');
     }
 
@@ -1029,9 +1027,14 @@
                                         <p class="text-xs text-slate-400">${new Date(f.created_at).toLocaleDateString()}</p>
                                     </div>
                                 </div>
-                                <a href="${f.file_url}" target="_blank" download class="text-slate-400 hover:text-emerald-600 p-2 rounded-full hover:bg-emerald-50 transition">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                </a>
+                                <div class="flex space-x-2">
+                                    <a href="${f.file_url}" target="_blank" download class="text-slate-400 hover:text-emerald-600 p-2 rounded-full hover:bg-emerald-50 transition" title="Download">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                    </a>
+                                    <button onclick="deleteAttachment('${f.id}')" class="text-slate-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition" title="Delete">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862A2 2 0 016.862 21L6 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
                             </div>
                          `;
                     }).join('');
@@ -1071,6 +1074,43 @@
             bar.classList.add('hidden');
             console.error(e);
             alert("Upload failed");
+        }
+    }
+
+    function deleteAttachment(attachmentId) {
+        document.getElementById('del-modal-title').innerText = 'Delete Attachment?';
+        document.getElementById('del-modal-desc').innerText = 'Are you sure you want to delete this file? This cannot be undone.';
+
+        const btn = document.getElementById('del-modal-btn');
+        btn.onclick = () => confirmDeleteAttachment(attachmentId);
+
+        document.getElementById('delete-confirm-modal').classList.remove('hidden');
+    }
+
+    async function confirmDeleteAttachment(attachmentId) {
+        try {
+            const btn = document.getElementById('del-modal-btn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Deleting...';
+            btn.disabled = true;
+
+            const res = await fetch(`/api/attachments/${attachmentId}`, { method: 'DELETE' });
+
+            if (res.ok) {
+                document.getElementById('delete-confirm-modal').classList.add('hidden');
+                showToast("Attachment deleted", "success");
+                loadAttachments(currentPreviewTaskId);
+            } else {
+                const err = await res.json();
+                alert("Failed to delete: " + (err.error || 'Unknown error'));
+            }
+            btn.innerText = originalText;
+            btn.disabled = false;
+        } catch (e) {
+            console.error(e);
+            alert("Network error");
+            document.getElementById('del-modal-btn').innerText = 'Yes, Delete';
+            document.getElementById('del-modal-btn').disabled = false;
         }
     }
 </script>
