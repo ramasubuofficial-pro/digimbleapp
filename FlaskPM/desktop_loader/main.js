@@ -3,7 +3,7 @@ const path = require('path');
 
 // CHANGE THIS URL TO YOUR LIVE HOSTED URL (e.g. https://your-app.onrender.com)
 // For local testing, use 'http://localhost:5000'
-const APP_URL = 'http://localhost:5000';
+const APP_URL = 'https://digianchorzdemo.onrender.com';
 
 function createWindow() {
     const win = new BrowserWindow({

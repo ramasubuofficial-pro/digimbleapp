@@ -18,6 +18,7 @@ def create_app():
              re.compile(r"^https?://.*\.ngrok-free\.dev$"),
              re.compile(r"^https?://.*\.netlify\.app$"),
              "https://demodigipms.netlify.app",
+             "https://digianchorzdemo.onrender.com",
              "http://localhost",
              "capacitor://localhost"
          ],
