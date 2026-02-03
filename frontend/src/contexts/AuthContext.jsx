@@ -34,6 +34,29 @@ export const AuthProvider = ({ children }) => {
 
     const initializeUser = async (authUser) => {
         try {
+            // 0. Sync with Backend Session FIRST to validate access
+            const { data: { session: currentSession } } = await supabase.auth.getSession()
+            if (currentSession) {
+                try {
+                    await axios.post('/auth/api/set-session', {
+                        access_token: currentSession.access_token,
+                        user: currentSession.user
+                    })
+                } catch (apiError) {
+                    // CRITICAL: Backend rejected the login (e.g. Not Invited)
+                    if (apiError.response?.status === 403) {
+                        console.error("Login Rejected by Backend:", apiError.response.data.error)
+                        await supabase.auth.signOut()
+                        setUser(null)
+                        setLoading(false)
+                        // Show Alert to User
+                        alert(apiError.response.data.error || "Invalid credential, ask your admin to invite you.")
+                        return
+                    }
+                    throw apiError
+                }
+            }
+
             // 1. Fetch Latest Data from users table (Source of truth for name/role)
             const { data, error } = await supabase
                 .from('users')
@@ -47,18 +70,16 @@ export const AuthProvider = ({ children }) => {
             setUser(fullUser)
             setLoading(false)
 
-            // 2. Sync with Backend Session in background (Don't await it to prevent UI hang)
-            const { data: { session: currentSession } } = await supabase.auth.getSession()
-            if (currentSession) {
-                axios.post('/auth/api/set-session', {
-                    access_token: currentSession.access_token,
-                    user: currentSession.user
-                }).catch(err => console.warn("Background session sync failed:", err))
-            }
-
         } catch (e) {
             console.error("Auth initialization failed", e)
-            setUser(authUser) // Fallback to basic auth user
+            // Check if it was a missing user in DB error
+            if (e.code === 'PGRST116') { // JSON object requested, multiple (or no) rows returned
+                await supabase.auth.signOut()
+                setUser(null)
+                alert("Invalid credential, ask your admin to invite you.")
+            } else {
+                setUser(authUser) // Fallback to basic auth user
+            }
             setLoading(false)
         }
     }

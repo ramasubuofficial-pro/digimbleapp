@@ -69,7 +69,7 @@ def set_session():
                 # User not found in DB -> Was not invited or was deleted.
                 print(f"Login Rejected: {email} ({user_id}) not found in invitations list.")
                 return jsonify({
-                    "error": "Access Denied. You are not on the permitted member list. Please contact the Admin.",
+                    "error": "Invalid credential, ask your admin to invite you.",
                     "redirect": "/login"
                 }), 403
             
