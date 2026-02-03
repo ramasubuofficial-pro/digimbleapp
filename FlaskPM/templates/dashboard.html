@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - DIGIANCHORZ PM{% endblock %}
+{% block title %}Dashboard - DIGIANCHORZ{% endblock %}
 {% block header_title %}Dashboard{% endblock %}
 
 {% block head %}
@@ -318,75 +318,83 @@
         const completed = members.map(m => m.completed);
         const pending = members.map(m => m.pending);
 
-        new Chart(ctxMember, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Completed',
-                        data: completed,
-                        backgroundColor: '#10b981', // Emerald
-                        borderRadius: 4
-                    },
-                    {
-                        label: 'Pending',
-                        data: pending,
-                        backgroundColor: '#cbd5e1', // Slate
-                        borderRadius: 4
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { stacked: true, grid: { display: false } },
-                    y: { stacked: true, beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 1 } }
+        if (!members || members.length === 0) {
+            showNoData('teamMemberChart', 'No individual performance data');
+        } else {
+            new Chart(ctxMember, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Completed',
+                            data: completed,
+                            backgroundColor: '#10b981', // Emerald
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Pending',
+                            data: pending,
+                            backgroundColor: '#cbd5e1', // Slate
+                            borderRadius: 4
+                        }
+                    ]
                 },
-                plugins: {
-                    legend: { position: 'top', align: 'end' }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, grid: { display: false } },
+                        y: { stacked: true, beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 1 } }
+                    },
+                    plugins: {
+                        legend: { position: 'top', align: 'end' }
+                    }
                 }
-            }
-        });
+            });
+        }
 
         // 2. Project Progress
         const projects = data.project_performance;
         const pLabels = projects.map(p => p.title);
         const pProgress = projects.map(p => p.progress);
 
-        new Chart(ctxProj, {
-            type: 'bar',
-            indexAxis: 'y', // Horizontal
-            data: {
-                labels: pLabels,
-                datasets: [{
-                    label: 'Completion %',
-                    data: pProgress,
-                    backgroundColor: pProgress.map(v => v >= 100 ? '#10b981' : (v > 50 ? '#f59e0b' : '#3b82f6')), // Green, Amber, Blue
-                    borderRadius: 4,
-                    barPercentage: 0.6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { max: 100, beginAtZero: true },
-                    y: { grid: { display: false } }
+        if (!projects || projects.length === 0) {
+            showNoData('projectProgressChart', 'No project progress data');
+        } else {
+            new Chart(ctxProj, {
+                type: 'bar',
+                indexAxis: 'y', // Horizontal
+                data: {
+                    labels: pLabels,
+                    datasets: [{
+                        label: 'Completion %',
+                        data: pProgress,
+                        backgroundColor: pProgress.map(v => v >= 100 ? '#10b981' : (v > 50 ? '#f59e0b' : '#3b82f6')), // Green, Amber, Blue
+                        borderRadius: 4,
+                        barPercentage: 0.6
+                    }]
                 },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function (context) {
-                                return context.parsed.x + '%';
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { max: 100, beginAtZero: true },
+                        y: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return context.parsed.x + '%';
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 </script>
 {% endblock %}

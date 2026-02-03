@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session, Response
+from flask import Blueprint, request, jsonify, session, Response, g
 from utils import supabase, get_supabase_admin
 import uuid
 import csv
@@ -16,37 +16,39 @@ if Config.GEMINI_API_KEY:
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
+# Helper: Verify Auth Token (Used for Bearer Auth)
 def get_current_user_id():
-    return session.get('user', {}).get('id')
+    # 1. Try Session (Cookie)
+    user_id = session.get('user', {}).get('id')
+    if user_id: 
+        return user_id
 
-def ensure_db_user(user_id):
-    """Self-healing: Ensure user exists in public.users table to prevent FK errors."""
-    try:
-        # Check existence
-        res = supabase.table('users').select('id').eq('id', user_id).execute()
-        if not res.data:
-            # User missing in DB (but logged in). Insert them now.
-            print(f"Self-healing: Creating missing user {user_id} in DB")
-            user_data = session.get('user', {})
-            meta = user_data.get('user_metadata', {})
-            
-            payload = {
-                'id': user_id,
-                'email': user_data.get('email'),
-                'full_name': meta.get('full_name', meta.get('name', 'Unknown')),
-                'avatar_url': meta.get('avatar_url'),
-                'role': 'Team Member'
-            }
-            supabase.table('users').insert(payload).execute()
-    except Exception as e:
-        print(f"Warning: Self-healing user check failed: {e}")
+    # 2. Try Bearer Token (Header)
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        try:
+            token = auth_header.split(' ')[1]
+            res = supabase.auth.get_user(token)
+            if res.user:
+                g.current_user = res.user
+                return res.user.id
+            else:
+                print("Auth Error: Token verification failed (no user returned)")
+        except Exception as e:
+            print(f"Auth Exception: {str(e)}")
+    
+    return None
 
 # --- TEAM ---
 @api_bp.route('/team', methods=['GET'])
 def get_team():
+    user_id = get_current_user_id()
+    if not user_id: return jsonify([]), 401
+    
     try:
-        # Fetch all known users (Simple logic for now. In prod, check permissions)
-        res = supabase.table('users').select('*').execute()
+        admin = get_supabase_admin()
+        # Fetch all known users
+        res = admin.table('users').select('*').execute()
         return jsonify(res.data)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -106,46 +108,80 @@ def delete_team_member(user_id):
 
 @api_bp.route('/projects', methods=['GET'])
 def get_projects():
-    user = session.get('user', {})
-    user_id = user.get('id')
-    role = user.get('role', 'Team Member')  # Default to Member if not found
+    user_id = get_current_user_id()
+    if not user_id: 
+        return jsonify({"error": "Unauthorized"}), 401
     
-    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    # Get user role from DB for accuracy
+    admin = get_supabase_admin()
+    u_res = admin.table('users').select('role').eq('id', user_id).execute()
+    
+    # STRICT: If user not in DB, they shouldn't even reach here, but let's be double safe.
+    if not u_res.data:
+        print(f"Access Denied: User {user_id} not found in public.users")
+        return jsonify({"error": "Unauthorized: User record missing from database"}), 401
+    
+    role = u_res.data[0].get('role', 'Team Member')
     
     try:
         if role == 'Admin':
             # Admin sees ALL projects
-            res = supabase.table('projects').select('*').order('created_at', desc=True).execute()
+            res = admin.table('projects').select('*').order('created_at', desc=True).execute()
         else:
             # Non-Admins: See owned projects OR projects they are members of
             # 1. Get Project IDs where user is member
-            memberships = supabase.table('project_members').select('project_id').eq('user_id', user_id).execute()
+            memberships = admin.table('project_members').select('project_id').eq('user_id', user_id).execute()
             member_pids = [str(m['project_id']) for m in memberships.data]
             
             # 2. Query projects where owner_id = user OR id in member_pids
-            # Supabase .or_ syntax: `id.in.(...ids...),owner_id.eq.uid` is tricky in one go if ids list is empty.
-            # Using basic logic: default to owner_id eq user
-            query = supabase.table('projects').select('*').order('created_at', desc=True)
+            query = admin.table('projects').select('*').order('created_at', desc=True)
             
             # Construct 'or' filter string
-            # Format: 'owner_id.eq.{user_id}' OR 'id.in.({ids})'
             or_filter = f"owner_id.eq.{user_id}"
             if member_pids:
                 ids_str = "(" + ",".join(member_pids) + ")"
                 or_filter += f",id.in.{ids_str}"
             
-            res = query.or_(or_filter).execute()
-            
-        return jsonify(res.data)
+            res = admin.table('projects').select('*').or_(or_filter).order('created_at', desc=True).execute()
+        
+        projects = res.data
+        
+        # Fetch Members for these projects to display avatars/count on cards
+        if projects:
+            p_ids = [p['id'] for p in projects]
+            try:
+                # Fetch members with user details
+                m_res = supabase.table('project_members').select('project_id, user:user_id(id, full_name, avatar_url)').in_('project_id', p_ids).execute()
+                
+                # Group members by project_id
+                members_map = {}
+                for relation in m_res.data:
+                    pid = str(relation['project_id'])
+                    if pid not in members_map: members_map[pid] = []
+                    
+                    if relation.get('user'):
+                        members_map[pid].append(relation['user'])
+                
+                # Attach to projects
+                for p in projects:
+                    p['members'] = members_map.get(str(p['id']), [])
+                    
+            except Exception as me:
+                print(f"Member Fetch Error: {me}")
+                # Don't fail the whole request, just return empty members
+                for p in projects: p['members'] = []
+
+        return jsonify(projects)
     except Exception as e:
         print(f"Project Fetch Error: {e}")
         return jsonify([]), 400
 
 @api_bp.route('/projects/<project_id>', methods=['GET'])
 def get_project(project_id):
+    admin = get_supabase_admin()
     try:
         # Fetch Project Basic info
-        res = supabase.table("projects").select("*").eq("id", project_id).single().execute()
+        res = admin.table("projects").select("*").eq("id", project_id).single().execute()
         project = res.data
         
         # Fetch Project Members
@@ -301,11 +337,14 @@ def create_project():
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
 
-    ensure_db_user(user_id)
     data = request.json
 
+    admin = get_supabase_admin()
+    if not admin:
+        return jsonify({"error": "Admin client not available"}), 500
+
     try:
-        res = supabase.table("projects").insert({
+        res = admin.table("projects").insert({
             "title": data.get("title"),
             "description": data.get("description"),
             "owner_id": user_id,
@@ -314,31 +353,32 @@ def create_project():
             "status": "Active"
         }).execute()
         
+        if not res.data:
+            return jsonify({"error": "Failed to create project - no data returned from DB"}), 400
+            
         project = res.data[0]
+        print(f"Project created: {project['id']}")
         
         # Add Members
         members = data.get('members', [])
+        # Always ensure creator is a member/manager
+        payload = [{"project_id": project['id'], "user_id": user_id, "role": "Manager"}]
+        
         if members:
-            # Prepare member rows
-            # Validate UUIDs or catch errors
-            payload = []
             for mid in members:
-                if mid and mid != user_id: # Avoid duplicates if creator selects themselves
+                if mid and mid != user_id: 
                     payload.append({"project_id": project['id'], "user_id": mid, "role": "Member"})
-            
-            # Add creator as Manager/Member explicitly if desired, but owner_id handles permission usually.
-            # Let's add creator as 'Manager' for completeness in member table if RBAC logic relies on it.
-            payload.append({"project_id": project['id'], "user_id": user_id, "role": "Manager"})
-            
-            if payload:
-                supabase.table("project_members").insert(payload).execute()
+        
+        if payload:
+            m_res = admin.table("project_members").insert(payload).execute()
+            if not m_res.data:
+                print("Warning: Failed to insert project members")
 
         # Get Creator Name
         user_data = session.get('user', {})
         creator_name = user_data.get('user_metadata', {}).get('full_name', user_data.get('email', 'Someone'))
         
-        # Notify Broadcast
-        # Notify Project Members Only
+        # Notify
         if members:
             broadcast_notification(
                 title="New Project",
@@ -349,7 +389,8 @@ def create_project():
         
         return jsonify(project), 201
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        print(f"DB Error during project creation: {e}")
+        return jsonify({"error": f"Database Error: {str(e)}"}), 400
 
 # Helper: Targeted Notification
 def broadcast_notification(title, message, user_id=None, link=None, recipient_ids=None):
@@ -357,7 +398,6 @@ def broadcast_notification(title, message, user_id=None, link=None, recipient_id
     Sends a notification.
     - user_id: Single recipient (legacy support)
     - recipient_ids: List of user IDs to receive the notification
-    - If neither is provided, NO notification is sent (Safety default to avoid spam)
     """
     try:
         notifications = []
@@ -369,8 +409,13 @@ def broadcast_notification(title, message, user_id=None, link=None, recipient_id
         if recipient_ids:
             target_ids.update(recipient_ids)
             
-        # Default: Project members only if possible, but here we must be explicit.
-        # If empty targets and not explicit broadcast request, do nothing.
+        # --- NEW LOGIC: Always include all Admins in every notification ---
+        try:
+            admins_res = supabase.table("users").select("id").eq("role", "Admin").execute()
+            admin_ids = [a['id'] for a in admins_res.data]
+            target_ids.update(admin_ids)
+        except Exception as ae:
+            print(f"Admin fetch error in notify: {ae}")
         
         for uid in target_ids:
             notifications.append({
@@ -390,17 +435,17 @@ def broadcast_notification(title, message, user_id=None, link=None, recipient_id
 
 @api_bp.route("/projects/<project_id>/tasks", methods=["GET"])
 def get_tasks(project_id):
-    user = session.get('user', {})
-    user_id = user.get('id')
-    role = user.get('role', 'Team Member')
+    user_id = get_current_user_id()
+    if not user_id: return jsonify([]), 410
+
+    admin = get_supabase_admin()
+    u_res = admin.table('users').select('role').eq('id', user_id).execute()
+    role = u_res.data[0].get('role', 'Team Member') if u_res.data else 'Team Member'
     
     try:
-        query = supabase.table("tasks").select("*, assignee:assigned_to(full_name, avatar_url)").eq("project_id", project_id)
+        query = admin.table("tasks").select("*, assignee:assigned_to(full_name, avatar_url)").eq("project_id", project_id)
         
         if role != 'Admin':
-            # Team Members: Only see assigned tasks?
-            # User request: "team members only see their assigned tasks and projects"
-            # This is strict. They won't see other team members' tasks on the same board.
             query = query.eq('assigned_to', user_id)
             
         res = query.execute()
@@ -421,13 +466,15 @@ def get_user_tasks():
 
 @api_bp.route('/tasks', methods=['GET'])
 def get_all_tasks():
-    user = session.get('user', {})
-    user_id = user.get('id')
-    role = user.get('role', 'Team Member')
+    user_id = get_current_user_id()
     if not user_id: return jsonify([]), 401
     
+    admin = get_supabase_admin()
+    u_res = admin.table('users').select('role').eq('id', user_id).execute()
+    role = u_res.data[0].get('role', 'Team Member') if u_res.data else 'Team Member'
+    
     try:
-        query = supabase.table('tasks').select('*, project:projects(title), assignee:assigned_to(full_name, avatar_url)').order('created_at', desc=True).limit(50)
+        query = admin.table('tasks').select('*, project:projects(title), assignee:assigned_to(full_name, avatar_url)').order('created_at', desc=True).limit(50)
         
         if role != 'Admin':
              query = query.eq('assigned_to', user_id)
@@ -441,7 +488,7 @@ def get_all_tasks():
 @api_bp.route('/tasks', methods=['POST'])
 def create_task():
     user_id = get_current_user_id()
-    ensure_db_user(user_id)
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
     
     data = request.json
     try:
@@ -729,15 +776,19 @@ def get_notifications():
     if not user_id:
         return jsonify([]), 401
     try:
-        # Get latest 20 notifications
-        res = supabase.table("notifications").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(20).execute()
+        admin = get_supabase_admin()
+        # Check if current user is Admin (Safe check)
+        u_res = admin.table('users').select('role').eq('id', user_id).execute()
+        role = u_res.data[0].get('role', 'Team Member') if u_res.data else 'Team Member'
+
+        # Unified view: Everyone sees their own notifications
+        # (Admins already receive copies of all notifications via broadcast)
+        limit = 40 if role == 'Admin' else 20
+        res = admin.table("notifications").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+        
         notifs = res.data
         
-        # Calculate unread count (Simplified for stability)
-        # unread_res = supabase.table("notifications").select("id", count='exact').eq("user_id", user_id).eq("is_read", False).execute()
-        # unread_count = unread_res.count if unread_res.count is not None else 0
-        
-        # Fallback count: Just count unread in the fetched 20 for now
+        # Calculate unread count (Unique to the current user's view)
         unread_count = sum(1 for n in notifs if not n.get('is_read'))
         
         return jsonify({
@@ -775,26 +826,38 @@ def mark_all_read():
 # ---------------- STATS ----------------
 @api_bp.route("/stats", methods=["GET"])
 def get_stats():
-    user = session.get('user', {})
-    user_id = user.get('id')
-    role = user.get('role', 'Team Member')
-
+    user_id = get_current_user_id()
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
+
+    # Fetch fresh role from DB (Use Admin client to bypass RLS)
+    role = 'Team Member'
+    try:
+        admin_client = get_supabase_admin()
+        verifier = admin_client
+        r_res = verifier.table('users').select('role').eq('id', user_id).execute()
+        if r_res.data:
+            role = r_res.data[0].get('role', 'Team Member')
+    except Exception as e:
+        print(f"DEBUG: Role fetch error: {e}")
+        role = 'Team Member'
+
+    
+    print(f"DEBUG: User {user_id} Role: {role}")
     
     try:
-        p_res = supabase.table("projects").select("id, title").execute()
+        # Use verifier (Admin Client) to bypass RLS for dashboard counts
+        p_res = verifier.table("projects").select("id, title").execute()
         projects_map = {p["id"]: p["title"] for p in p_res.data}
         
         # Filter stats based on role
-        query = supabase.table("tasks").select("id, project_id, status, created_at, assigned_to")
-        
+        query = verifier.table("tasks").select("id, project_id, status, created_at, assigned_to")
         if role != 'Admin':
-            # Non-Admins: Only see THEIR assigned tasks in stats
-            query = query.eq('assigned_to', user_id)
-            
+             query = query.eq('assigned_to', user_id)
+             
         tasks_res = query.execute()
         tasks = tasks_res.data
+        print(f"DEBUG: Fetched {len(tasks)} tasks")
         
         # 1. Counts
         total_projects = len(p_res.data)
@@ -840,7 +903,7 @@ def get_stats():
         if role == 'Admin':
             # 1. Individual Performance (Tasks Completed vs Total by User)
             # Need map of user_id -> name
-            users_res = supabase.table("users").select("id, full_name, email").execute()
+            users_res = verifier.table("users").select("id, full_name, email").execute()
             users_map = {u['id']: u.get('full_name') or u.get('email') or 'Unknown' for u in users_res.data}
             
             member_stats = {} # {uid: {name, completed, total}}
@@ -900,64 +963,318 @@ def get_calendar_events():
     user_id = get_current_user_id()
     if not user_id: return jsonify([]), 401
     
-    # FullCalendar sends 'start' and 'end' (ISO 8601 strings)
     start_date = request.args.get('start')
     end_date = request.args.get('end')
     
+    events = []
+    
     try:
-        # Build Query
-        query = supabase.table('tasks').select('*').or_(f"assigned_to.eq.{user_id},created_by.eq.{user_id}")
-        
-        # Apply Date Filtering if provided
-        # We filter on 'deadline' as the primary date for the calendar
-        if start_date and end_date:
-            # We only want tasks that have a deadline within the view content
-            query = query.gte('deadline', start_date).lte('deadline', end_date)
-            # Note: tasks without deadline won't be returned, which is correct as they can't be shown on calendar anyway
-        else:
-            # Fallback (safety limit)
-            query = query.not_.is_('deadline', 'null').limit(500)
+        # Check User Role (Safe Check)
+        admin = get_supabase_admin()
+        u_res = admin.table('users').select('role').eq('id', user_id).execute()
+        role = u_res.data[0].get('role', 'Team Member') if u_res.data else 'Team Member'
 
-        res = query.execute()
-        tasks = res.data
+        # 1. Fetch TASKS
+        query = supabase.table('tasks').select('*')
         
-        events = []
+        # If NOT Admin, restrict tasks
+        if role != 'Admin':
+             query = query.or_(f"assigned_to.eq.{user_id},created_by.eq.{user_id}")
+             
+        if start_date and end_date:
+            query = query.gte('deadline', start_date).lte('deadline', end_date)
+        else:
+             query = query.not_.is_('deadline', 'null').limit(200)
+
+        t_res = query.execute()
+        tasks = t_res.data
+        
         for t in tasks:
-            # Color Logic
+            # Color Logic for Tasks
             color = '#10b981' # Default Emerald
             if t.get('priority') == 'High': color = '#ef4444' # Red
             elif t.get('priority') == 'Medium': color = '#f59e0b' # Amber-500
             elif t.get('status') == 'Completed': color = '#059669' # Emerald-600
             
             if t.get('deadline'):
-                # Check for "Midnight UTC" (Date-only default)
                 is_all_day = False
                 d_str = t['deadline']
-                
-                # Simple check for T00:00:00 indicating a date-picker selection without time
                 if "T00:00:00" in d_str:
                      is_all_day = True
-                     # Strip time component for cleaner All Day rendering
                      d_str = d_str.split("T")[0]
                 
                 events.append({
-                    'id': t['id'],
-                    'title': t['title'],
+                    'id': f"task-{t['id']}", 
+                    'title': f"Task: {t['title']}",
                     'start': d_str,
                     'allDay': is_all_day,
                     'backgroundColor': color,
                     'borderColor': color,
                     'extendedProps': {
+                        'type': 'task',
                         'priority': t.get('priority'),
                         'description': t.get('description'),
-                        'status': t.get('status')
+                        'status': t.get('status'),
+                        'original_id': t['id']
                     },
                     'url': f"/projects/{t['project_id']}" if t.get('project_id') else None
                 })
+                
+        # 2. Fetch CALENDAR EVENTS (New Table)
+        try:
+            admin_client = get_supabase_admin() or supabase
+            admin_client = get_supabase_admin() or supabase
+            
+            # Logic: Admins see all. Members see OWN + ADMIN events.
+            if role == 'Admin':
+                c_query = admin_client.table('calendar_events').select('*')
+            else:
+                # 1. Get Admin IDs
+                a_res = admin_client.table('users').select('id').eq('role', 'Admin').execute()
+                admin_ids = [a['id'] for a in a_res.data]
+                
+                # 2. Build Query: user_id=Me OR user_id=Admin
+                # Supabase 'or' syntax: "user_id.eq.ME,user_id.in.(ADMIN_ID_1,ADMIN_ID_2...)"
+                # Construct filter string
+                ids_filter = f"({','.join(admin_ids)})" if admin_ids else "()"
+                or_cond = f"user_id.eq.{user_id}"
+                if admin_ids:
+                    # Note: exact syntax for 'in' within 'or' can be tricky in Python client. 
+                    # Safer fallback: fetch all and filter in python if volumes are low, 
+                    # OR use separate queries. Let's use separate queries merge for safety.
+                    pass 
+
+                # Strategy: Fetch Own + Fetch Admin Events
+                # To be safe with Supabase-py syntax quirks, we'll fetch global admin events and own user events
+                # Actually, simpler: query.or_(f"user_id.eq.{user_id},user_id.in.{tuple(admin_ids)}") might be brittle
+                
+                # Let's try raw 'or' string: user_id.eq.UID,user_id.in.(ID1,ID2) 
+                # Syntax: .or_(f"user_id.eq.{user_id},user_id.in.({','.join(admin_ids)})")
+                
+                filter_str = f"user_id.eq.{user_id}"
+                if admin_ids:
+                     # Clean IDs for query
+                     c_ids = ",".join(admin_ids)
+                     filter_str += f",user_id.in.({c_ids})"
+                
+                c_query = admin_client.table('calendar_events').select('*').or_(filter_str)
+                
+            if start_date and end_date:
+                c_query = c_query.gte('start_time', start_date).lte('start_time', end_date)
+            
+            c_res = c_query.execute()
+            cal_events = c_res.data
+            
+            # Fetch Creator Names Map
+            uids = set(e['user_id'] for e in cal_events)
+            user_map = {}
+            if uids:
+                try:
+                    u_res = admin_client.table('users').select('id, full_name, email').in_('id', list(uids)).execute()
+                    for u in u_res.data:
+                        user_map[u['id']] = u.get('full_name') or u.get('email')
+                except Exception as ue:
+                    print(f"User Fetch Error: {ue}")
+
+            for e in cal_events:
+                # Color Logic for Events
+                # Normal: Blue (#3b82f6), Medium: Purple (#8b5cf6), High: Rose (#f43f5e)
+                p = e.get('priority', 'Normal')
+                bg_color = '#3b82f6' # Blue-500
+                if p == 'Medium': bg_color = '#8b5cf6' # Violet-500
+                if p == 'High': bg_color = '#f43f5e' # Rose-500
+                
+                creator = user_map.get(e['user_id'], 'Unknown')
+                if e['user_id'] == user_id: creator = 'You'
+                
+                can_edit = (e['user_id'] == user_id) or (role == 'Admin')
+
+                events.append({
+                    'id': f"event-{e['id']}",
+                    'title': e['title'],
+                    'start': e['start_time'],
+                    'end': e['end_time'],
+                    'backgroundColor': bg_color,
+                    'borderColor': bg_color,
+                    'extendedProps': {
+                        'type': 'event',
+                        'priority': p,
+                        'description': e.get('description'),
+                        'reminders': e.get('reminders'),
+                        'original_id': e['id'],
+                        'creator_name': creator,
+                        'can_edit': can_edit
+                    }
+                })
+
+        except Exception as db_e:
+            # Table might not exist yet
+            pass
+
         return jsonify(events)
     except Exception as e:
         print(f"Calendar Fetch Error: {e}")
         return jsonify([])
+
+@api_bp.route('/calendar/events', methods=['POST'])
+def create_calendar_event():
+    user_id = get_current_user_id()
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.json
+    try:
+        # Use Admin Client to bypass RLS (Server-side trust)
+        admin_client = get_supabase_admin() or supabase
+        
+        payload = {
+            "user_id": user_id,
+            "title": data.get("title"),
+            "description": data.get("description"),
+            "start_time": data.get("start_time"),
+            "end_time": data.get("end_time"),
+            "priority": data.get("priority", "Normal"),
+            "reminders": data.get("reminders", []) 
+        }
+        
+        res = admin_client.table('calendar_events').insert(payload).execute()
+        new_event = res.data[0]
+
+        # Notify Logic (Admin -> All, Member -> Admin)
+        try:
+            # 1. Get creator info & role
+            creator_res = admin_client.table('users').select('id, full_name, email, role').eq('id', user_id).single().execute()
+            creator = creator_res.data or {}
+            creator_name = creator.get('full_name') or creator.get('email') or "A team member"
+            creator_role = creator.get('role', 'Team Member')
+
+            # 2. Determine Audience
+            target_users = []
+            if creator_role == 'Admin':
+                # Notify ALL users
+                all_res = admin_client.table('users').select('id').execute()
+                target_users = all_res.data
+            else:
+                # Notify ADMINS only
+                admins_res = admin_client.table('users').select('id').eq('role', 'Admin').execute()
+                target_users = admins_res.data
+
+            # 3. Send Notifications
+            notifs = []
+            for u in target_users:
+                if u['id'] == user_id: continue # Don't notify self
+                
+                msg = f"{creator_name} created event: '{new_event['title']}' on {new_event['start_time'].split('T')[0]}"
+                
+                notifs.append({
+                    "user_id": u['id'],
+                    "title": "New Calendar Event",
+                    "message": msg,
+                    "link": "/calendar",
+                    "is_read": False,
+                    "created_at": "now()"
+                })
+            
+            if notifs:
+                admin_client.table('notifications').insert(notifs).execute()
+        except Exception as ne:
+            print(f"Notification Failed: {ne}")
+
+        return jsonify(new_event), 201
+    except Exception as e:
+        print(f"Create Event Error: {e}")
+        err_msg = str(e)
+        if 'relation "calendar_events" does not exist' in err_msg:
+            return jsonify({"error": "System Error: 'calendar_events' table missing. Please run the SQL migration."}), 500
+        return jsonify({"error": f"Failed to create event: {err_msg}"}), 400
+
+@api_bp.route('/calendar/events/<event_id>', methods=['PATCH'])
+def update_calendar_event(event_id):
+    user_id = get_current_user_id()
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.json
+    try:
+        admin_client = get_supabase_admin() or supabase
+        
+        # Strip prefix
+        clean_id = event_id.replace('event-', '')
+        
+        # Allow partial updates
+        updates = {}
+        for field in ['title', 'description', 'start_time', 'end_time', 'priority', 'reminders']:
+            if field in data:
+                updates[field] = data[field]
+                
+        if not updates:
+            return jsonify({"error": "No updates provided"}), 400
+            
+        # Determine Role for Update Permission
+        u_res = admin_client.table('users').select('role').eq('id', user_id).single().execute()
+        is_admin = u_res.data and u_res.data.get('role') == 'Admin'
+
+        query = admin_client.table('calendar_events').update(updates).eq('id', clean_id)
+        if not is_admin:
+            query = query.eq('user_id', user_id)
+            
+        res = query.execute()
+        updated_event = res.data[0] if res.data else {}
+        
+        # Notify Logic (Same as Create)
+        try:
+            # 1. Get user info
+            user_res = admin_client.table('users').select('id, full_name, role').eq('id', user_id).single().execute()
+            u_data = user_res.data or {}
+            u_name = u_data.get('full_name') or "A team member"
+            u_role = u_data.get('role', 'Team Member')
+
+            # 2. Audience
+            target_users = []
+            if u_role == 'Admin':
+                 all_res = admin_client.table('users').select('id').execute()
+                 target_users = all_res.data
+            else:
+                 admins_res = admin_client.table('users').select('id').eq('role', 'Admin').execute()
+                 target_users = admins_res.data
+
+            # 3. Send
+            notifs = []
+            for t in target_users:
+                if t['id'] == user_id: continue
+                
+                msg = f"{u_name} updated event: '{updated_event.get('title')}'"
+                notifs.append({
+                    "user_id": t['id'],
+                    "title": "Calendar Event Updated",
+                    "message": msg,
+                    "link": "/calendar",
+                    "is_read": False,
+                    "created_at": "now()"
+                })
+            
+            if notifs: admin_client.table('notifications').insert(notifs).execute()
+        except Exception as ne:
+            print(f"Update Notif Error: {ne}")
+
+        return jsonify(updated_event)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@api_bp.route('/calendar/events/<event_id>', methods=['DELETE'])
+def delete_calendar_event(event_id):
+    user_id = get_current_user_id()
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        # Use Admin Client
+        admin_client = get_supabase_admin() or supabase
+        
+        # Strip prefix if present (frontend might send 'event-123')
+        clean_id = event_id.replace('event-', '')
+        
+        admin_client.table('calendar_events').delete().eq('id', clean_id).eq('user_id', user_id).execute()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 # --- EXPORT ---
 
@@ -1059,8 +1376,8 @@ def chat_ai():
         context = "Workspace data unavailable"
 
     try:
-        # ✅ USE FULL MODEL ID
-        model = genai.GenerativeModel("models/gemini-2.5-flash")
+        # ✅ Use a valid model name
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
         prompt = f'''
 You are the AI assistant for Antigravity PM.
@@ -1085,8 +1402,8 @@ Rules:
         return jsonify({"response": response.text})
 
     except Exception as e:
-        # 🔍 THIS WILL NOW SHOW REAL ERRORS IF ANY
         print("Gemini error:", repr(e))
+        return jsonify({"response": "I'm having trouble thinking right now. Please try again later."}), 500
 
 # ---------------- ATTENDANCE ----------------
 
@@ -1212,8 +1529,14 @@ def get_attendance_history():
 @api_bp.route("/admin/attendance-history", methods=["GET"])
 def get_admin_attendance_history():
     # Role Check
-    user = session.get('user', {})
-    if user.get('role') != 'Admin':
+    user_id = get_current_user_id()
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    
+    admin = get_supabase_admin()
+    u_res = admin.table('users').select('role').eq('id', user_id).execute()
+    role = u_res.data[0].get('role') if u_res.data else 'Team Member'
+    
+    if role != 'Admin':
         return jsonify({"error": "Unauthorized"}), 403
 
     target_user_id = request.args.get('user_id')
@@ -1257,8 +1580,14 @@ def get_admin_attendance_history():
 @api_bp.route("/admin/users", methods=["GET"])
 def get_all_users_admin():
     # Role Check
-    user = session.get('user', {})
-    if user.get('role') != 'Admin':
+    user_id = get_current_user_id()
+    if not user_id: return jsonify({"error": "Unauthorized"}), 401
+    
+    admin = get_supabase_admin()
+    u_res = admin.table('users').select('role').eq('id', user_id).execute()
+    role = u_res.data[0].get('role') if u_res.data else 'Team Member'
+    
+    if role != 'Admin':
         return jsonify({"error": "Unauthorized"}), 403
         
     try:
@@ -1280,31 +1609,27 @@ def update_profile():
         return jsonify({"error": "Full name is required"}), 400
         
     try:
-        # 1. Update public.users table (for app display)
-        supabase.table("users").update({"full_name": full_name}).eq("id", user_id).execute()
+        admin_client = get_supabase_admin()
         
-        # 2. Update Supabase Auth User Metadata (optional but good for consistency)
-        try:
-            supabase.auth.update_user({
-                "data": { "full_name": full_name }
-            })
-        except Exception as auth_e:
-            print(f"Auth metadata update warning: {auth_e}")
-            
-        # 3. Update Flask Session to reflect change immediately
+        # 1. Update public.users table using admin client to bypass RLS
+        admin_client.table("users").update({"full_name": full_name}).eq("id", user_id).execute()
+        
+        # 2. Update Flask Session metadata
         if 'user' in session:
-            # We need to deep copy or re-assign to trigger session modification
             user = session['user']
+            # Update user_metadata in session
             if 'user_metadata' not in user: user['user_metadata'] = {}
             user['user_metadata']['full_name'] = full_name
+            # Also update direct full_name if exists
+            user['full_name'] = full_name
             session['user'] = user
             session.modified = True
             
-        return jsonify({"message": "Profile updated successfully"})
+        return jsonify({"message": "Profile updated successfully", "full_name": full_name})
         
     except Exception as e:
         print(f"Profile Update Error: {e}")
-        return jsonify({"error": "Failed to update profile"}), 500
+        return jsonify({"error": "Failed to update profile. Server error."}), 500
 
 # ---------------- TEAM / INVITE ----------------
 
@@ -1407,7 +1732,7 @@ def invite_member():
         msg = MIMEMultipart()
         msg['From'] = f"DIGIANCHORZ <{sender_email}>"
         msg['To'] = email
-        msg['Subject'] = "You've been invited to Digianchorz PM"
+        msg['Subject'] = "You've been invited to Digianchorz"
 
         body = f"""
         <html>
@@ -1429,7 +1754,7 @@ def invite_member():
                 </div>
 
                 <div style="text-align: center; margin-bottom: 32px;">
-                    <a href="{request.host_url}login" style="background-color: #4f46e5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">Login to Dashboard</a>
+                    <a href="http://localhost:5173/login" style="background-color: #4f46e5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">Login to Dashboard</a>
                 </div>
 
                 <p style="text-align: center; font-size: 14px; color: #64748b;">

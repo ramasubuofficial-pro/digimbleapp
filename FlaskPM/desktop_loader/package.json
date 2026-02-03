@@ -1,8 +1,8 @@
 {
     "name": "digianchorz-pm-desktop",
     "version": "1.0.0",
-    "productName": "DigiAnchorz PM",
-    "description": "Professional Desktop Client for DigiAnchorz Project Management",
+    "productName": "Digianchorz",
+    "description": "Professional Desktop Client for Digianchorz Project Management",
     "main": "main.js",
     "scripts": {
         "start": "electron .",

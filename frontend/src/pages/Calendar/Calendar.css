@@ -1,0 +1,215 @@
+/* Premium FullCalendar Styling */
+
+.fc {
+    font-family: 'Inter', sans-serif !important;
+}
+
+/* Header & Title */
+.fc .fc-toolbar {
+    margin-bottom: 2.5rem !important;
+    align-items: center;
+}
+
+.fc .fc-toolbar-title {
+    font-size: 1.5rem !important;
+    font-weight: 900 !important;
+    color: #1e293b;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding-left: 0.5rem;
+    position: relative;
+}
+
+/* Control Buttons */
+.fc .fc-button-group {
+    background: #f8fafc;
+    padding: 4px;
+    border-radius: 16px;
+    gap: 2px;
+}
+
+.fc .fc-button-primary {
+    background: transparent !important;
+    border: none !important;
+    color: #64748b !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    border-radius: 12px !important;
+    padding: 0.6rem 1.25rem !important;
+    font-size: 0.7rem !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: none !important;
+}
+
+.fc .fc-button-primary:hover {
+    color: #10b981 !important;
+    background: white !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+    background: white !important;
+    color: #10b981 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+.fc .fc-today-button {
+    background: #10b981 !important;
+    border: none !important;
+    color: white !important;
+    border-radius: 12px !important;
+    margin-right: 12px !important;
+    padding: 0.6rem 1.5rem !important;
+    font-size: 0.7rem !important;
+    font-weight: 900 !important;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2) !important;
+}
+
+.fc .fc-today-button:disabled {
+    opacity: 0.6;
+    background: #94a3b8 !important;
+}
+
+/* Calendar Grid */
+.fc-theme-standard .fc-scrollgrid {
+    border: none !important;
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th {
+    border: 1px solid #f1f5f9 !important;
+}
+
+.fc .fc-col-header-cell {
+    background: transparent;
+    padding: 1.5rem 0 !important;
+    border: none !important;
+}
+
+.fc .fc-col-header-cell-cushion {
+    font-size: 0.7rem;
+    font-weight: 900;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    text-decoration: none !important;
+}
+
+/* Day Numbers */
+.fc .fc-daygrid-day-top {
+    flex-direction: row !important;
+}
+
+.fc .fc-daygrid-day-number {
+    color: #475569;
+    font-weight: 800;
+    font-size: 0.85rem;
+    padding: 1rem !important;
+    text-decoration: none !important;
+    transition: all 0.2s;
+}
+
+.fc-day-today {
+    background: rgba(16, 185, 129, 0.02) !important;
+}
+
+.fc-day-today .fc-daygrid-day-number {
+    background: #10b981;
+    color: white !important;
+    border-radius: 12px;
+    min-width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0.75rem !important;
+    box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
+}
+
+.fc-day-sun {
+    background: #fafafa;
+}
+
+.fc-day-sat {
+    background: #fafafa;
+}
+
+/* Event Styling */
+.fc-v-event,
+.fc-h-event {
+    border: none !important;
+    padding: 6px 10px !important;
+    border-radius: 10px !important;
+    margin: 2px 6px !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+    transition: transform 0.2s, box-shadow 0.2s !important;
+}
+
+.fc-v-event:hover,
+.fc-h-event:hover {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+    filter: brightness(1.1);
+}
+
+.fc-event-title {
+    font-weight: 800 !important;
+    font-size: 0.7rem !important;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* TimeGrid Styling */
+.fc .fc-timegrid-slot {
+    height: 3rem !important;
+    border-bottom: 1px dashed #f1f5f9 !important;
+}
+
+.fc .fc-timegrid-axis-cushion {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .fc .fc-toolbar {
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 1.5rem !important;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 1.25rem !important;
+        padding-left: 0;
+        margin: 0.5rem 0;
+    }
+
+    /* Adjust button sizes for mobile */
+    .fc .fc-button-primary {
+        padding: 0.5rem 0.8rem !important;
+        font-size: 0.65rem !important;
+    }
+}

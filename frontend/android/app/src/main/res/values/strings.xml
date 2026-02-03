@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DigianchorzPM</string>
+    <string name="title_activity_main">DigianchorzPM</string>
+    <string name="package_name">com.digianchorz.pm</string>
+    <string name="custom_url_scheme">com.digianchorz.pm</string>
+</resources>

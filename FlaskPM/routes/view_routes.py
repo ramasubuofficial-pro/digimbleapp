@@ -13,18 +13,8 @@ def login_required(f):
     return decorated_function
 
 @view_bp.route('/')
-@login_required
 def dashboard():
-    user_id = session['user']['id']
-    
-    # Fetch user role safely
-    try:
-        user_res = supabase.table('users').select('role').eq('id', user_id).execute()
-        user_role = user_res.data[0]['role'] if user_res.data else 'Team Member'
-    except Exception:
-        user_role = 'Team Member'
-    
-    return render_template('dashboard.html', user=session['user'], role=user_role)
+    return redirect("http://localhost:5173")
 
 @view_bp.route('/tasks')
 @login_required
@@ -82,4 +72,4 @@ def attendance():
 # Convenience Redirect
 @view_bp.route('/login')
 def login_redirect():
-    return redirect(url_for('auth.login'))
+    return redirect("http://localhost:5173/login")

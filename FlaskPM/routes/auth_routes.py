@@ -7,10 +7,7 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/login')
 def login():
-    # If already logged in, redirect to dashboard
-    if 'user' in session:
-        return redirect(url_for('views.dashboard'))
-    return render_template('login.html')
+    return redirect("/login")
 
 @auth_bp.route('/google')
 def google_auth():
@@ -51,19 +48,30 @@ def set_session():
         try:
             # STRICT AUTH CHECK:
             # User must ALREADY exist in public.users (via Invite) to log in.
-            
-            # Use Admin Client to bypass RLS for this check
-            # (Because 'supabase' client is Anon and might not be able to read users table if RLS is strict)
             admin_client = get_supabase_admin()
-            verifier = admin_client if admin_client else supabase
+            if not admin_client:
+                 return jsonify({"error": "Configuration Error"}), 500
             
-            existing = verifier.table('users').select('role, full_name').eq('id', user_id).execute()
+            # 1. Check by ID first
+            existing = admin_client.table('users').select('id, role, full_name, email').eq('id', user_id).execute()
             
+            # 2. If not found by ID, check by Email (First time login after invite)
+            if not existing.data and email:
+                print(f"Auth: Checking for email invite for {email}")
+                existing = admin_client.table('users').select('id, role, full_name, email').eq('email', email).execute()
+                
+                if existing.data:
+                    # Found by email! Link this ID to the record now.
+                    print(f"Auth: Linking email invite to ID {user_id}")
+                    admin_client.table('users').update({'id': user_id}).eq('email', email).execute()
+
             if not existing.data:
                 # User not found in DB -> Was not invited or was deleted.
-                print(f"Login Rejected: User {email} ({user_id}) not found in public.users")
-                # SECURITY: Return error to frontend
-                return jsonify({"error": "Access Denied. You must be invited by an Admin.", "redirect": "/login"}), 403
+                print(f"Login Rejected: {email} ({user_id}) not found in invitations list.")
+                return jsonify({
+                    "error": "Access Denied. You are not on the permitted member list. Please contact the Admin.",
+                    "redirect": "/login"
+                }), 403
             
             # --- User is Valid ---
             record = existing.data[0]
@@ -81,7 +89,8 @@ def set_session():
                 user_data['user_metadata']['full_name'] = db_name # Session uses DB name
                 user_data['full_name'] = db_name
 
-            supabase.table('users').update(update_payload).eq('id', user_id).execute()
+            # Update details (Avatar/Email) using admin client
+            admin_client.table('users').update(update_payload).eq('id', user_id).execute()
 
             # Set Session
             user_data['role'] = db_role
@@ -99,4 +108,4 @@ def set_session():
 @auth_bp.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('auth.login'))
+    return redirect("/login")

@@ -1,19 +1,55 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 from config import Config
 from routes.auth_routes import auth_bp
 from routes.view_routes import view_bp
 from routes.api_routes import api_bp
+import re
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Init CORS (Robust RegEx for Mobile/Ngrok/Netlify)
+    from flask_cors import CORS
+    CORS(app, 
+         supports_credentials=True, 
+         origins=[
+             re.compile(r"^https?://localhost(:\d+)?$"),
+             re.compile(r"^https?://.*\.ngrok-free\.dev$"),
+             re.compile(r"^https?://.*\.netlify\.app$"),
+             "https://demodigipms.netlify.app",
+             "http://localhost",
+             "capacitor://localhost"
+         ],
+         allow_headers=["Content-Type", "Authorization", "ngrok-skip-browser-warning"],
+         methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+
+    @app.after_request
+    def after_request(response):
+        origin = request.headers.get('Origin')
+        if origin:
+            print(f"  [CORS] Handshake with {origin}")
+        return response
+
+    @app.before_request
+    def log_request_info():
+        # Enhanced Logging to help debug mobile connectivity
+        origin = request.headers.get('Origin', 'No Origin')
+        print(f"--- [{request.method}] {request.path} from {origin} ---")
+        if 'Authorization' not in request.headers:
+            print("  (!) Missing Authorization Header")
+        else:
+            print("  (✓) Authorization Header Present")
+
+    @app.route('/api/ping')
+    def ping():
+        return jsonify({"status": "online", "message": "Backend is reachable!"})
 
     # Register Blueprints
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(view_bp)
     app.register_blueprint(api_bp)
 
-    # Inject config into all templates
     # Inject config into all templates
     @app.context_processor
     def inject_config():
@@ -32,17 +68,26 @@ def create_app():
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+        # Ensure CORS headers are set for credentials
+        # response.headers['Access-Control-Allow-Credentials'] = 'true' 
+        # (CORS library handles this usually, but good to check if issues persist)
         return response
 
     # Check session on every request
     @app.before_request
     def check_user_active():
-        # Skip static assets and auth routes (to allow login/logout)
+        # Skip static assets, auth routes, and API requests with Bearer tokens
+        if request.method == 'OPTIONS':
+            return
+            
         if not request.endpoint or 'static' in request.endpoint or 'auth.' in request.endpoint:
             return
         
-        # If accessing the login page itself, don't loop
         if request.endpoint == 'view_bp.login':
+            return
+
+        # If it's an API call with an Authorization header, let api_routes handle it
+        if request.headers.get('Authorization'):
             return
 
         # Check if session exists but user is deleted from DB
@@ -50,16 +95,20 @@ def create_app():
             user_id = session.get('user', {}).get('id')
             if user_id:
                 try:
-                    # Check if user exists in public.users table
-                    res = supabase.table('users').select('id').eq('id', user_id).execute()
-                    if not res.data:
-                        print(f"User {user_id} not found in DB. Forcing logout.")
-                        session.clear()
-                        return redirect(url_for('view_bp.login'))
+                    # Use Admin Client to check existence (bypass RLS)
+                    from utils import get_supabase_admin
+                    admin = get_supabase_admin()
+                    if admin:
+                        res = admin.table('users').select('id').eq('id', user_id).execute()
+                        if not res.data:
+                            print(f"User {user_id} not found in DB. Forcing logout.")
+                            session.clear()
+                            if '/api/' in request.path:
+                                 from flask import jsonify
+                                 return jsonify({"error": "User record deleted"}), 401
+                            return redirect(url_for('view_bp.login'))
                 except Exception as e:
                     print(f"Session check error: {e}")
-                    # Optional: Force logout on error to be safe? 
-                    # For now, let's allow ensuring it's not a temp glitch.
 
     # Reverse Geocode API (OSM Fallback)
     import requests
@@ -135,22 +184,23 @@ def create_app():
 
             # Build list with specific header parts first
             parts = []
-            if house_number: parts.append(str(house_number))
-            if place_name: parts.append(place_name)
-            if road: parts.append(road)
+            if postcode: parts.append(postcode)
             if suburb: parts.append(suburb)
             if city_town: parts.append(city_town)
-            if district: parts.append(district)
+            if district and district != city_town: parts.append(district)
             if state: parts.append(state)
-            if postcode: parts.append(postcode)
+            
+            # If we want to keep more details if available but later in the string
+            # if place_name: parts.append(place_name)
+            # if road: parts.append(road)
 
-            # Deduplicate preserving order (e.g. if Place Name == Road, don't show it twice)
+            # Deduplicate preserving order
             seen = set()
             clean_parts = []
             for p in parts:
-                if p and p not in seen:
+                if p and p.lower() not in seen:
                     clean_parts.append(p)
-                    seen.add(p)
+                    seen.add(p.lower())
 
             location = ", ".join(clean_parts)
 
@@ -174,5 +224,4 @@ if __name__ == "__main__":
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         start_scheduler()
         
-    app.run(debug=True, port=5000)
-
+    app.run(debug=True, host='0.0.0.0', port=5000)

@@ -9,7 +9,7 @@ function createWindow() {
     const win = new BrowserWindow({
         width: 1280,
         height: 850,
-        title: "DigiAnchorz PM",
+        title: "Digianchorz",
         icon: path.join(__dirname, 'icon.png'),
         backgroundColor: '#f0fdf4', // Match your app background
         webPreferences: {
