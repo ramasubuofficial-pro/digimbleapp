@@ -18,7 +18,7 @@ To get a permanent backend URL and replace ngrok, follow these steps:
     *   **Build Command**: `pip install -r requirements.txt`
     *   **Start Command**: `gunicorn app:app`
 4.  **Environment Variables**: In the Render dashboard, go to **Environment** and add the keys from your `api_keys/keys.py` (e.g., `SUPABASE_URL`, `SUPABASE_KEY`, etc.).
-5.  **Get your URL**: Once deployed, Render will give you a URL like `https://digianchorz-backend.onrender.com`.
+5.  **Get your URL**: Once deployed, Render will give you a URL like `https://digianchorzdemo.onrender.com`.
 
 Once hosted, update the `VITE_API_URL` in your `frontend/.env.production` file.
 
