@@ -1754,7 +1754,7 @@ def invite_member():
                 </div>
 
                 <div style="text-align: center; margin-bottom: 32px;">
-                    <a href="http://localhost:5173/login" style="background-color: #4f46e5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">Login to Dashboard</a>
+                    <a href="https://demodigipms.netlify.app/login" style="background-color: #4f46e5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">Login to Dashboard</a>
                 </div>
 
                 <p style="text-align: center; font-size: 14px; color: #64748b;">
