@@ -60,15 +60,34 @@ Since your app is already a **PWA** (Progressive Web App), you can convert it to
 5.  Select **Android**.
 6.  It will generate a signed `.apk` (or `.aab`) that you can install on your phone or upload to the Play Store.
 
-### Option B: Capacitor (For Developers)
-If you want more control (like push notifications, camera native access):
-1.  Install Capacitor in your project:
+### Option B: Capacitor (Professional Way)
+This method gives you a real native app project that you can customize in Android Studio.
+
+**Prerequisites:**
+- **Android Studio** must be installed on your computer.
+
+**Steps to Build:**
+1.  **Build your Website Code**:
+    Open a terminal in the `frontend` folder and run:
     ```bash
-    npm install @capacitor/core @capacitor/cli @capacitor/android
-    npx cap init
+    npm run build
     ```
-2.  Point `webDir` in `capacitor.config.json` to your `templates` or build output.
-3.  This requires **Android Studio** installed on your machine.
+
+2.  **Sync with Android Project**:
+    This copies your built website into the Android folder.
+    ```bash
+    npx cap sync android
+    ```
+
+3.  **Open in Android Studio**:
+    *   Open **Android Studio**.
+    *   Click **Open** and select the folder: `d:\Antigravity - Copy\frontend\android`.
+    *   Wait for the "Gradle Sync" (bottom right progress bar) to finish.
+
+4.  **Generate APK**:
+    *   In the top menu, go to **Build** > **Build Bundle(s) / APK(s)** > **Build APK(s)**.
+    *   When finished, a popup will appear at the bottom right. Click **locate**.
+    *   The file `app-debug.apk` is your mobile app. Send it to your phone and install it!
 
 ---
 
